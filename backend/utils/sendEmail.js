@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 const nodemailer = require("nodemailer");
+=======
+import nodemailer from "nodemailer"
+>>>>>>> 5e988b0
 
 const sendEmail = async (email, otp) => {
   try {
@@ -37,4 +41,8 @@ const sendEmail = async (email, otp) => {
   }
 };
 
+<<<<<<< HEAD
 module.exports = sendEmail;
+=======
+export default sendEmail;
+>>>>>>> 5e988b0
