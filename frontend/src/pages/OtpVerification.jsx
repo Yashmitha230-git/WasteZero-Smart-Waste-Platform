@@ -6,6 +6,7 @@ function OtpVerification() {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -23,6 +24,7 @@ function OtpVerification() {
     setError("");
     setSuccess("");
 
+    setLoading(true);
     try {
       if (type === "register") {
         await verifyRegisterOtp({ userId, otp });
@@ -54,6 +56,8 @@ function OtpVerification() {
       }
     } catch (err) {
       setError(err.response?.data?.message || "OTP verification failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,9 +88,12 @@ function OtpVerification() {
 
           <button
             type="submit"
-            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg shadow-md transition-colors duration-200"
+            disabled={loading}
+            className={`font-semibold py-3 rounded-lg shadow-md transition-colors duration-200 ${
+              loading ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700 text-white"
+            }`}
           >
-            Verify OTP
+            {loading ? "Verifying..." : "Verify OTP"}
           </button>
         </form>
 

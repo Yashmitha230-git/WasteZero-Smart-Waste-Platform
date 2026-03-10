@@ -49,6 +49,11 @@ router.get(
   }
 );
 
+// Check Auth
+router.get("/check", protect, (req, res) => {
+  res.status(200).json({ success: true, user: req.user });
+});
+
 // Get Profile
 router.get("/me", protect, async (req, res) => {
   const user = await User.findById(req.user.id).select("-password");
@@ -97,6 +102,78 @@ router.get("/", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
- 
+
+// ✅ ADMIN: GET ALL USERS WITH STATS
+router.get("/admin/all-users", protect, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const users = await User.find().select("-password -otp -otpExpiry -loginOtp -loginOtpExpire");
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ✅ ADMIN: SUSPEND / UNSUSPEND USER
+router.put("/admin/suspend/:userId", protect, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.role === "admin") return res.status(403).json({ message: "Cannot suspend admin" });
+
+    user.isSuspended = !user.isSuspended;
+    await user.save();
+
+    res.json({ message: `User ${user.isSuspended ? "suspended" : "unsuspended"} successfully`, isSuspended: user.isSuspended });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ✅ ADMIN: DELETE USER
+router.delete("/admin/delete/:userId", protect, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.role === "admin") return res.status(403).json({ message: "Cannot delete admin" });
+
+    await User.findByIdAndDelete(req.params.userId);
+    res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ✅ ADMIN: PLATFORM STATS
+router.get("/admin/stats", protect, authorizeRoles("admin"), async (req, res) => {
+  try {
+    const Message = (await import("../model/messages.js")).default;
+    const Opportunity = (await import("../model/opportunity.js")).default;
+    const Pickup = (await import("../model/pickup.js")).default;
+
+    const [totalUsers, volunteers, ngos, admins, totalMessages, totalOpportunities, totalPickups, suspendedUsers] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ role: "volunteer" }),
+      User.countDocuments({ role: "ngo" }),
+      User.countDocuments({ role: "admin" }),
+      Message.countDocuments(),
+      Opportunity.countDocuments().catch(() => 0),
+      Pickup.countDocuments().catch(() => 0),
+      User.countDocuments({ isSuspended: true }),
+    ]);
+
+    res.json({
+      totalUsers,
+      volunteers,
+      ngos,
+      admins,
+      totalMessages,
+      totalOpportunities,
+      totalPickups,
+      suspendedUsers,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 export default router;

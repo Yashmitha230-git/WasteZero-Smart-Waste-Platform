@@ -208,7 +208,7 @@ export const addRecycledItems = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
   try {
-    const senderId = req.user._id; // 🔥 take from token
+    const senderId = req.user._id.toString(); 
     const { receiverId, text } = req.body;
 
     if (!receiverId || !text) {
@@ -216,6 +216,8 @@ export const sendMessage = async (req, res) => {
         message: "receiverId and text are required",
       });
     }
+
+    console.log(`API: Sending message from ${senderId} to ${receiverId}: ${text}`);
 
     const newMessage = await Message.create({
       senderId,
@@ -226,6 +228,80 @@ export const sendMessage = async (req, res) => {
     res.status(201).json(newMessage);
   } catch (error) {
     console.log("Message Error:", error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getConversation = async (req, res) => {
+  try {
+    const { otherUserId } = req.params;
+    const currentUserId = req.user._id.toString();
+
+    const messages = await Message.find({
+      $or: [
+        { senderId: currentUserId, receiverId: otherUserId },
+        { senderId: otherUserId, receiverId: currentUserId },
+      ],
+    }).sort({ createdAt: 1 });
+
+    console.log(`API: Found ${messages.length} messages`);
+
+    res.status(200).json(messages);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const markAsRead = async (req, res) => {
+  try {
+    const { otherUserId } = req.body;
+    const currentUserId = req.user._id.toString();
+
+    await Message.updateMany(
+      { senderId: otherUserId, receiverId: currentUserId, isRead: { $ne: true } },
+      { $set: { isRead: true } }
+    );
+    res.status(200).json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getUnreadCounts = async (req, res) => {
+  try {
+    const currentUserId = req.user._id.toString();
+
+    const result = await Message.aggregate([
+      { $match: { receiverId: currentUserId, isRead: { $ne: true } } },
+      { $group: { _id: "$senderId", count: { $sum: 1 } } }
+    ]);
+
+    const counts = {};
+    result.forEach((item) => {
+      counts[item._id] = item.count;
+    });
+
+    res.status(200).json(counts);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const clearConversation = async (req, res) => {
+  try {
+    const { otherUserId } = req.params;
+    const currentUserId = req.user._id.toString();
+
+    await Message.deleteMany({
+      $or: [
+        { senderId: currentUserId, receiverId: otherUserId },
+        { senderId: otherUserId, receiverId: currentUserId },
+      ],
+    });
+
+    res.status(200).json({ message: "Conversation cleared successfully" });
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };

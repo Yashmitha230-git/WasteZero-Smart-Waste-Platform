@@ -28,6 +28,12 @@ const server = http.createServer(app);  // ✅ Required for socket
 app.use(cors());
 app.use(express.json());
 
+// Request logger
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/auth", userRoutes);
@@ -41,7 +47,7 @@ app.use("/api/dashboard", dashboardRoutes)
 const onlineUsers = new Map();
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173", // your frontend port
+    origin: "*", // allow all origins so multiple frontend instances work
     methods: ["GET", "POST"],
   },
 });
@@ -49,13 +55,16 @@ const io = new Server(server, {
 let users = [];
 
 const addUser = (userId, socketId) => {
-  if (!users.some((user) => user.userId === userId)) {
+  const userIndex = users.findIndex((user) => user.userId === userId);
+  if (userIndex !== -1) {
+    users[userIndex].socketId = socketId;
+  } else {
     users.push({ userId, socketId });
   }
 };
 
 const getUser = (userId) => {
-  return users.find((user) => user.userId === userId);
+  return users.find((user) => user.userId === String(userId));
 };
 
 io.on("connection", (socket) => {
@@ -86,7 +95,8 @@ io.on("connection", (socket) => {
   });
 });
 
-// ✅ IMPORTANT: Use server.listen
-server.listen(3000, () =>
-  console.log("Server running on port 3000")
+const PORT = process.env.PORT || 3001;
+
+server.listen(PORT, () =>
+  console.log(`Server running on port ${PORT}`)
 );

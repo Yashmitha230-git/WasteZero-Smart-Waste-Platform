@@ -53,6 +53,11 @@ const userSchema = new mongoose.Schema(
       default: false
     },
 
+    isSuspended: {
+      type: Boolean,
+      default: false
+    },
+
     loginOtp: String, 
     
     loginOtpExpire: Date,

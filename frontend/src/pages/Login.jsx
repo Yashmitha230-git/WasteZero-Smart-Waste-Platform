@@ -12,6 +12,7 @@ function Login() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // 🔒 Redirect if already logged in
   useEffect(() => {
@@ -23,8 +24,7 @@ function Login() {
     const user = JSON.parse(storedUser);
 
     if (user?.role === "admin") navigate("/admin");
-    else if (user?.role === "ngo") navigate("/ngo");
-    else navigate("/volunteer");
+    else navigate("/dashboard");
   }, [navigate]);
 
   const handleChange = (e) => {
@@ -40,6 +40,7 @@ function Login() {
     setError("");
     setSuccess("");
 
+    setLoading(true);
     try {
       const response = await loginUser(formData);
       const userId = response.userId;
@@ -55,6 +56,8 @@ function Login() {
 
     } catch (err) {
       setError(err.response?.data?.message || "Invalid credentials");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -163,9 +166,12 @@ function Login() {
 
             <button
               type="submit"
-              className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition duration-300"
+              disabled={loading}
+              className={`w-full py-2 rounded-lg font-semibold transition duration-300 ${
+                loading ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700 text-white"
+              }`}
             >
-              Login
+              {loading ? "Sending OTP..." : "Login"}
             </button>
 
           </form>

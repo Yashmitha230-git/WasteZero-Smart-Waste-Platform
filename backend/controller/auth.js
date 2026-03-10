@@ -71,12 +71,17 @@ export const verifyRegisterOtp = async (req, res) => {
     const user = await User.findById(userId);
 
     if (!user) {
-  return res.status(400).json({ message: "User not found" });
-}
+      return res.status(400).json({ message: "User not found" });
+    }
 
-if (String(user.otp) !== String(otp)) {
-  return res.status(400).json({ message: "Invalid OTP" });
-}
+    const submittedOtp = String(otp).trim();
+    const storedOtp = String(user.otp).trim();
+
+    console.log(`Verifying Registration OTP for ${user.email}: Submitted [${submittedOtp}], Stored [${storedOtp}]`);
+
+    if (storedOtp !== submittedOtp) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
 
 if (user.otpExpiry < Date.now()) {
   return res.status(400).json({ message: "OTP expired" });
@@ -152,13 +157,18 @@ export const verifyLoginOtp = async (req, res) => {
 
     const user = await User.findById(userId);
 
-   if (!user) {
-  return res.status(400).json({ message: "User not found" });
-}
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
 
-if (String(user.otp) !== String(otp)) {
-  return res.status(400).json({ message: "Invalid OTP" });
-}
+    const submittedOtp = String(otp).trim();
+    const storedOtp = String(user.otp).trim();
+
+    console.log(`Verifying Login OTP for ${user.email}: Submitted [${submittedOtp}], Stored [${storedOtp}]`);
+
+    if (storedOtp !== submittedOtp) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
 
 if (user.otpExpiry < Date.now()) {
   return res.status(400).json({ message: "OTP expired" });

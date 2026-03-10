@@ -1,5 +1,5 @@
  
-import {Route, BrowserRouter, Routes, Router} from 'react-router-dom'
+import {Route, BrowserRouter, Routes, Router, Navigate} from 'react-router-dom'
 import './index.css'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -16,6 +16,7 @@ import EditOpportunity from './pages/Edit-Opportunity'
 import Messages from './pages/Messages'
 import OtpVerification from './pages/OtpVerification'
 import MyProfile from './pages/MyProfile'
+import AdminPanel from './pages/AdminPanel'
 import ProtectedRoute from './components/ProtectRoute.jsx'
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
     <BrowserRouter>
      <Toaster/>
     <Routes>
+      <Route path="/" element={<Navigate to="/login" replace />} />
      
         {/* routes without sidebar */}
         <Route path="/login" element={<Login/>} />
@@ -46,6 +48,7 @@ function App() {
       <Route path="/edit-opportunity/:id" element={<EditOpportunity />} />
       <Route path="/messages" element={<Messages/>} />
       <Route path="/my-profile" element={<MyProfile/> } />
+      <Route path="/admin" element={<AdminPanel />} />
     </Route>
     </Routes>
     </BrowserRouter>
