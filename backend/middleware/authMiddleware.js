@@ -1,12 +1,14 @@
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+import jwt from "jsonwebtoken";
+import User from "../model/user.js";
 
-exports.protect = async (req, res, next) => {
+export const protect = async (req, res, next) => {
   try {
     let token;
 
-    // Check if token exists in headers
-    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer")
+    ) {
       token = req.headers.authorization.split(" ")[1];
     }
 
@@ -14,24 +16,21 @@ exports.protect = async (req, res, next) => {
       return res.status(401).json({ message: "Not authorized, no token" });
     }
 
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Get user from database (without password)
     req.user = await User.findById(decoded.id).select("-password");
 
     next();
-
   } catch (error) {
     return res.status(401).json({ message: "Not authorized, token failed" });
   }
 };
 
-exports.authorizeRoles = (...roles) => {
+export const authorizeRoles = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
-        message: `Access denied: ${req.user.role} role not allowed`
+        message: `Access denied: ${req.user.role} role not allowed`,
       });
     }
     next();
