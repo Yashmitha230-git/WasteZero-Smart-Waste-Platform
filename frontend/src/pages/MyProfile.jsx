@@ -9,7 +9,7 @@ export default function MyProfile() {
     name: "",
     email: "",
     location: "",
-    skills: ""
+    skills: ""   // displayed as comma-separated string in the input
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -25,10 +25,12 @@ export default function MyProfile() {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => setProfile({
-         name: res.data.name || "",
+        name: res.data.name || "",
         email: res.data.email || "",
         location: res.data.location || "",
-        skills: res.data.skills || ""
+        skills: Array.isArray(res.data.skills)
+          ? res.data.skills.join(", ")
+          : res.data.skills || ""
       }))
       .catch(() => toast.error("Failed to load profile"));
   }, [token]);
@@ -36,9 +38,14 @@ export default function MyProfile() {
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     try {
+      const skillsArray = profile.skills
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
       await axios.put(
         "/api/users/me",
-        profile,
+        { ...profile, skills: skillsArray },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast.success("Profile updated successfully");
@@ -163,6 +170,9 @@ export default function MyProfile() {
                 setProfile({ ...profile, skills: e.target.value })
               }
             />
+            <p className="text-xs text-gray-400 mt-1">
+              Separate multiple skills with commas
+            </p>
           </div>
 
           <button
