@@ -3,6 +3,7 @@ import upload from "../middleware/multer.js";
 import { createOpportunity, updateOpportunity } from "../controller/dashboardController.js";
 import Opportunity from "../model/opportunity.js";
 import Notification from "../model/notification.js";
+import User from "../model/user.js"; 
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -26,6 +27,76 @@ router.get("/", async (req, res) => {
     const data = await Opportunity.find().sort({ createdAt: -1 });
     res.json(data);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ================= TOP MATCHES FOR VOLUNTEER =================
+// Returns open opportunities scored by skills + location match
+router.get("/matches/top", protect, authorizeRoles("volunteer"), async (req, res) => {
+  try {
+    // Fetch the logged-in volunteer's full profile
+    const volunteer = await User.findById(req.user._id);
+    if (!volunteer) {
+      return res.status(404).json({ message: "Volunteer not found" });
+    }
+
+    // Normalize volunteer data
+    const volunteerLocation = (volunteer.location || "").trim().toLowerCase();
+
+    // Skills can be stored as an array or as a comma-separated string
+    let volunteerSkills = [];
+    if (Array.isArray(volunteer.skills)) {
+      volunteerSkills = volunteer.skills.map((s) => s.trim().toLowerCase()).filter(Boolean);
+    } else if (typeof volunteer.skills === "string") {
+      volunteerSkills = volunteer.skills
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+    }
+
+    // Fetch only open opportunities
+    const opportunities = await Opportunity.find({ status: "Open" });
+
+    // Score each opportunity
+    const scored = opportunities.map((opp) => {
+      let score = 0;
+
+      // --- Location match (2 points) ---
+      const oppLocation = (opp.location || "").trim().toLowerCase();
+      if (
+        volunteerLocation &&
+        oppLocation &&
+        (oppLocation.includes(volunteerLocation) || volunteerLocation.includes(oppLocation))
+      ) {
+        score += 2;
+      }
+
+      // --- Skills match (1 point per matching skill) ---
+      if (volunteerSkills.length > 0) {
+        const oppText =
+          `${opp.title || ""} ${opp.description || ""}`.toLowerCase();
+
+        volunteerSkills.forEach((skill) => {
+          if (skill && oppText.includes(skill)) {
+            score += 1;
+          }
+        });
+      }
+
+      return { opportunity: opp, score };
+    });
+
+    // Filter out zero-score results and sort descending by score
+    const topMatches = scored
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6) // top 6
+      .map((item) => ({ ...item.opportunity.toObject(), matchScore: item.score }));
+
+    res.json(topMatches);
+  } catch (err) {
+    console.error("Matching error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -57,12 +128,12 @@ router.put(
 
       // 🔐 If NGO → allow only if he created it
       if (
-  req.user.role === "ngo" &&
-  opportunity.createdBy &&
-  opportunity.createdBy.toString() !== req.user._id.toString()
-) {
-  return res.status(403).json({ msg: "Not authorized to edit this opportunity" });
-}
+        req.user.role === "ngo" &&
+        opportunity.createdBy &&
+        opportunity.createdBy.toString() !== req.user._id.toString()
+      ) {
+        return res.status(403).json({ msg: "Not authorized to edit this opportunity" });
+      }
 
       const updated = await Opportunity.findByIdAndUpdate(
         req.params.id,
@@ -82,6 +153,7 @@ router.put(
     }
   }
 );
+
 // ================= DELETE =================
 // Admin & NGO can delete
 router.delete(
@@ -97,12 +169,12 @@ router.delete(
 
       // 🔐 NGO restriction
       if (
-  req.user.role === "ngo" &&
-  opportunity.createdBy &&
-  opportunity.createdBy.toString() !== req.user._id.toString()
-) {
-  return res.status(403).json({ msg: "Not authorized to delete this opportunity" });
-}
+        req.user.role === "ngo" &&
+        opportunity.createdBy &&
+        opportunity.createdBy.toString() !== req.user._id.toString()
+      ) {
+        return res.status(403).json({ msg: "Not authorized to delete this opportunity" });
+      }
 
       await opportunity.deleteOne();
 
