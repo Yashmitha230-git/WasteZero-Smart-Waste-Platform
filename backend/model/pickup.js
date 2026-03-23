@@ -11,15 +11,23 @@ const pickupSchema = new mongoose.Schema({
     required: true
   },
 
+  volunteer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  ngo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   notes: String,
 
   // ✅ ADD THIS
   status: {
-  type: String,
-  enum: ["Pending", "Accepted", "Rejected", "Closed"],
-  default: "Pending"
-}
-
+    type: String,
+    enum: ["Pending", "Accepted", "In Progress", "Completed", "Rejected", "Closed"],
+    default: "Pending"
+  }
 },{ timestamps: true });
 
 export default mongoose.model("Pickup", pickupSchema);

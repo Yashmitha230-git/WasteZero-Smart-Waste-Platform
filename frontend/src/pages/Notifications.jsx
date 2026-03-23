@@ -24,24 +24,26 @@ const Notifications = () => {
   };
 
   return (
-    <div className="p-6">
-      <div className="max-w-3xl mx-auto bg-white shadow-lg rounded-2xl">
-        <div className="p-6 border-b flex justify-between items-center bg-green-600 rounded-t-2xl">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <FiBell />
-            Notifications
+    <div className="p-10 max-w-4xl mx-auto space-y-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-gray-100 dark:border-gray-800 pb-10 transition-colors">
+        <div>
+          <h2 className="text-4xl font-black text-gray-900 dark:text-white flex items-center tracking-tighter">
+            <FiBell className="mr-4 text-green-500" /> Notifications
           </h2>
-          {notifications.some(n => !n.isRead) && (
-            <button
-              onClick={markAllAsRead}
-              className="text-xs font-bold text-white bg-green-700 hover:bg-green-800 px-3 py-1.5 rounded-full transition"
-            >
-              Mark all as read
-            </button>
-          )}
+          <p className="text-gray-500 dark:text-gray-400 font-medium mt-2">Stay updated with the latest activity on the platform.</p>
         </div>
+        {notifications.some(n => !n.isRead) && (
+          <button
+            onClick={markAllAsRead}
+            className="bg-white dark:bg-gray-900 text-green-600 dark:text-green-400 border border-gray-100 dark:border-gray-800 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-green-600 hover:text-white dark:hover:bg-green-600 dark:hover:text-white transition-all active:scale-95"
+          >
+            Mark all as read
+          </button>
+        )}
+      </div>
 
-        <div className="divide-y max-h-[70vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 shadow-xl rounded-[2.5rem] border border-gray-100 dark:border-gray-800 overflow-hidden transition-colors">
+        <div className="divide-y divide-gray-50 dark:divide-gray-800 max-h-[75vh] overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="text-center py-20 text-gray-400">
               <FiBell size={64} className="mx-auto mb-4 opacity-10" />
@@ -52,24 +54,26 @@ const Notifications = () => {
               <div
                 key={n._id}
                 onClick={() => !n.isRead && markAsRead(n._id)}
-                className={`flex items-start gap-4 p-5 transition cursor-pointer hover:bg-gray-50 ${
-                  n.isRead ? "" : "bg-green-50/50"
+                className={`flex items-start gap-6 p-8 transition-all cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 group ${
+                  n.isRead ? "" : "bg-green-50/30 dark:bg-green-900/10"
                 }`}
               >
-                <div className="p-3 bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className={`p-4 rounded-2xl shadow-sm border transition-all ${
+                    n.isRead ? "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-400 dark:text-gray-500" : "bg-green-600 border-green-600 text-white shadow-lg shadow-green-500/20"
+                }`}>
                   {getIcon(n.type)}
                 </div>
                 
-                <div className="flex-1">
-                  <div className="flex justify-between items-start gap-2">
-                    <p className={`text-sm ${n.isRead ? "text-gray-600" : "text-gray-900 font-bold"}`}>
+                <div className="flex-1 space-y-2">
+                  <div className="flex justify-between items-start gap-4">
+                    <p className={`text-base tracking-tight ${n.isRead ? "text-gray-600 dark:text-gray-400 font-medium" : "text-gray-900 dark:text-white font-black"}`}>
                       {n.content}
                     </p>
                     {!n.isRead && (
-                      <span className="w-2.5 h-2.5 bg-green-500 rounded-full shrink-0 mt-1"></span>
+                      <span className="w-2.5 h-2.5 bg-green-500 rounded-full shrink-0 mt-2 shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse"></span>
                     )}
                   </div>
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mt-2">
+                  <p className="text-[10px] uppercase font-black tracking-widest text-gray-400 dark:text-gray-500">
                     {format(n.createdAt)}
                   </p>
                 </div>

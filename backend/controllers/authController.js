@@ -197,3 +197,42 @@ exports.verifyLoginOtp = async (req, res) => {
     });
   }
 };
+// ===================================================
+// ================== RESEND OTP =====================
+// ===================================================
+
+exports.resendOtp = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    // Generate new OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+    user.otp = otp;
+    user.otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    await user.save();
+
+    // Send OTP to email
+    await sendEmail(user.email, otp);
+
+    res.status(200).json({
+      message: "New OTP sent to your email"
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: "Resend OTP failed",
+      error: error.message
+    });
+  }
+};

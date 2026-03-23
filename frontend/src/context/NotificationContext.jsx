@@ -71,14 +71,21 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
+  const clearNotifications = () => {
+    setNotifications([]);
+    setUnreadCount(0);
+  };
+
   return (
     <NotificationContext.Provider
       value={{
         notifications,
         unreadCount,
+        socket,
         markAsRead,
         markAllAsRead,
         fetchNotifications,
+        clearNotifications,
       }}
     >
       {children}

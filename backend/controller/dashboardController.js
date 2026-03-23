@@ -208,7 +208,10 @@ export const addRecycledItems = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
   try {
-    const senderId = req.user._id; // 🔥 take from token
+    if (!req.user?._id) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+    const senderId = req.user._id;
     const { receiverId, text } = req.body;
 
     if (!receiverId || !text) {
@@ -218,14 +221,102 @@ export const sendMessage = async (req, res) => {
     }
 
     const newMessage = await Message.create({
-      senderId,
-      receiverId,
+      senderId: senderId.toString(),
+      receiverId: receiverId.toString(),
       text,
     });
 
     res.status(201).json(newMessage);
   } catch (error) {
-    console.log("Message Error:", error.message);
+    console.error("sendMessage Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
+
+export const getMessages = async (req, res) => {
+  try {
+    const { receiverId } = req.params;
+    if (!req.user?._id) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+    const senderId = req.user._id.toString();
+
+    const messages = await Message.find({
+      $or: [
+        { senderId, receiverId: receiverId.toString() },
+        { senderId: receiverId.toString(), receiverId: senderId },
+      ],
+    }).sort({ createdAt: 1 });
+
+    res.status(200).json(messages);
+  } catch (error) {
+    console.error("getMessages Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const clearConversation = async (req, res) => {
+  try {
+    const { otherUserId } = req.params;
+    if (!req.user?._id) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+    const currentUserId = req.user._id.toString();
+
+    await Message.deleteMany({
+      $or: [
+        { senderId: currentUserId, receiverId: otherUserId.toString() },
+        { senderId: otherUserId.toString(), receiverId: currentUserId },
+      ],
+    });
+
+    res.status(200).json({ message: "Conversation cleared successfully" });
+  } catch (error) {
+    console.error("clearConversation Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const markAsRead = async (req, res) => {
+  try {
+    const { otherUserId } = req.body;
+    if (!req.user?._id) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+    const currentUserId = req.user._id.toString();
+
+    await Message.updateMany(
+      { senderId: otherUserId.toString(), receiverId: currentUserId, isRead: { $ne: true } },
+      { $set: { isRead: true } }
+    );
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("markAsRead Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getUnreadCounts = async (req, res) => {
+  try {
+    if (!req.user?._id) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+    const currentUserId = req.user._id.toString();
+
+    const result = await Message.aggregate([
+      { $match: { receiverId: currentUserId, isRead: { $ne: true } } },
+      { $group: { _id: "$senderId", count: { $sum: 1 } } }
+    ]);
+
+    const counts = {};
+    result.forEach((item) => {
+      counts[item._id] = item.count;
+    });
+
+    res.status(200).json(counts);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
+

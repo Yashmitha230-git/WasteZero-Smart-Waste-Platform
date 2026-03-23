@@ -1,178 +1,195 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "../services/authService";
+import { loginUser, verifyLoginOtp } from "../services/authService";
+import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
+import { FiMail, FiLock, FiShield, FiArrowRight } from "react-icons/fi";
 
-function Login() {
-  const navigate = useNavigate();
+const Login = () => {
+    const navigate = useNavigate();
+    const [credentials, setCredentials] = useState({ email: "", password: "" });
+    const [step, setStep] = useState(1); // 1 for credentials, 2 for OTP
+    const [otp, setOtp] = useState("");
+    const [userId, setUserId] = useState(null);
+    const [loading, setLoading] = useState(false);
 
-  const [formData, setFormData] = useState({
-    email: "",
-    password: ""
-  });
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        if (token) navigate("/dashboard");
+    }, [navigate]);
 
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const res = await loginUser(credentials);
+            setUserId(res.userId);
+            setStep(2);
+            toast.success("OTP sent to your email!");
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Invalid login credentials");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  // 🔒 Redirect if already logged in
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
+    const handleVerifyOtp = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const res = await verifyLoginOtp({ userId, otp });
+            localStorage.setItem("token", res.token);
+            localStorage.setItem("user", JSON.stringify(res.user));
+            toast.success("Welcome back, " + res.user.name);
+            navigate("/dashboard");
+        } catch (err) {
+            toast.error(err.response?.data?.message || "OTP Verification failed");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    if (!token || !storedUser) return;
+    const handleResendOtp = async () => {
+        if (!userId) return;
+        setLoading(true);
+        try {
+            const { resendOtp } = await import("../services/authService");
+            await resendOtp({ userId });
+            toast.success("New code sent!");
+        } catch (err) {
+            toast.error("Failed to resend code");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    const user = JSON.parse(storedUser);
-
-    if (user?.role === "admin") navigate("/dashboard");
-    else if (user?.role === "ngo") navigate("/dashboard");
-    else navigate("/dashboard");
-  }, [navigate]);
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    setError("");
-    setSuccess("");
-
-    try {
-      const response = await loginUser(formData);
-      const userId = response.userId;
-
-      localStorage.setItem("otpUserId", userId);
-      localStorage.setItem("otpType", "login");
-
-      setSuccess("OTP sent. Redirecting...");
-
-      setTimeout(() => {
-        navigate("/verify-register-otp");
-      }, 1000);
-
-    } catch (err) {
-      setError(err.response?.data?.message || "Invalid credentials");
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex bg-gray-100">
-
-      {/* LEFT SECTION */}
-      <div className="hidden lg:flex w-1/2 bg-green-600 text-white p-12 flex-col justify-center">
-        <h1 className="text-4xl font-bold mb-4">♻ WasteZero</h1>
-        <h2 className="text-2xl font-semibold mb-4">
-          Welcome Back!
-        </h2>
-        <p className="mb-8 text-green-100">
-          Log in to schedule pickups, manage recycling opportunities,
-          and continue making a positive impact on our environment.
-        </p>
-
-        <div className="space-y-4">
-          <div>
-            <h4 className="font-semibold">Manage Pickups</h4>
-            <small className="text-green-200">
-              Track and schedule waste collection
-            </small>
-          </div>
-          <div>
-            <h4 className="font-semibold">Monitor Impact</h4>
-            <small className="text-green-200">
-              See your environmental contributions
-            </small>
-          </div>
-          <div>
-            <h4 className="font-semibold">Stay Connected</h4>
-            <small className="text-green-200">
-              Collaborate with NGOs and volunteers
-            </small>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT SECTION */}
-      <div className="flex w-full lg:w-1/2 items-center justify-center p-6">
-        <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-lg">
-
-          {/* Tabs */}
-          <div className="flex mb-6 border-b">
-            <button className="flex-1 py-2 border-b-2 border-green-600 font-semibold text-green-600">
-              Login
-            </button>
-            <button
-              onClick={() => navigate("/register")}
-              className="flex-1 py-2 text-gray-500 hover:text-green-600"
+    return (
+        <div className="min-h-screen grid lg:grid-cols-2 bg-white dark:bg-gray-950 overflow-hidden transition-colors duration-300">
+            {/* ILLUSTRATION/TEXT SECTION */}
+            <motion.div 
+                initial={{ x: -100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                className="hidden lg:flex bg-gradient-to-br from-green-600 to-indigo-700 p-16 flex-col justify-between text-white"
             >
-              Register
-            </button>
-          </div>
+                <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-green-600 font-bold text-xl shadow-xl">W</div>
+                    <span className="text-2xl font-bold tracking-tight">WasteZero</span>
+                </div>
+                <div className="space-y-6">
+                    <h1 className="text-6xl font-extrabold leading-tight">Empowering a <br/><span className="text-green-300 underline decoration-indigo-300">Sustainable</span> Future.</h1>
+                    <p className="text-xl text-green-50/80 leading-relaxed max-w-lg">Join thousands of volunteers and NGOs in the fight against waste. Manage pickups, track impact, and recycle smarter.</p>
+                </div>
+                <div className="flex items-center space-x-6">
+                    <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20">
+                        <p className="text-3xl font-bold">12k+</p>
+                        <p className="text-sm text-green-100">Pickups Managed</p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/20">
+                        <p className="text-3xl font-bold">95%</p>
+                        <p className="text-sm text-green-100">Success Rate</p>
+                    </div>
+                </div>
+            </motion.div>
 
-          <h2 className="text-2xl font-bold mb-2">Sign in to your account</h2>
-          <p className="text-gray-500 mb-6">
-            Enter your credentials to continue
-          </p>
+            {/* FORM SECTION */}
+            <div className="flex items-center justify-center p-8 bg-gray-50/50 dark:bg-gray-950/50 transition-colors">
+                <AnimatePresence mode="wait">
+                    {step === 1 ? (
+                        <motion.div 
+                            key="login-form" 
+                            initial={{ opacity: 0, scale: 0.9 }} 
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            className="w-full max-w-md bg-white dark:bg-gray-900 p-10 rounded-3xl shadow-2xl space-y-8 border border-gray-100 dark:border-gray-800 transition-colors"
+                        >
+                            <div className="space-y-2">
+                                <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">Sign In</h1>
+                                <p className="text-gray-500 dark:text-gray-400 font-medium">Welcome back! Please enter your details.</p>
+                            </div>
+                            <form onSubmit={handleLogin} className="space-y-5">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest text-[10px]">Email Address</label>
+                                    <div className="relative">
+                                        <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                                        <input 
+                                            type="email" 
+                                            className="w-full border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-green-500 rounded-xl py-4 pl-12 pr-4 outline-none transition-all duration-300 dark:text-white"
+                                            placeholder="you@example.com"
+                                            required
+                                            autoComplete="email"
+                                            onChange={(e) => setCredentials({...credentials, email: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest text-[10px]">Password</label>
+                                    <div className="relative">
+                                        <FiLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                                        <input 
+                                            type="password" 
+                                            className="w-full border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-green-500 rounded-xl py-4 pl-12 pr-4 outline-none transition-all duration-300 dark:text-white"
+                                            placeholder="••••••••"
+                                            required
+                                            autoComplete="current-password"
+                                            onChange={(e) => setCredentials({...credentials, password: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between text-xs font-bold py-2">
+                                    <label className="flex items-center cursor-pointer space-x-2">
+                                        <input type="checkbox" className="w-4 h-4 rounded border-gray-300 dark:border-gray-700 text-green-600 focus:ring-green-500 bg-transparent" />
+                                        <span className="text-gray-500 dark:text-gray-400">Remember for 30 days</span>
+                                    </label>
+                                    <span className="text-green-600 dark:text-green-400 font-bold hover:underline cursor-pointer">Forgot password?</span>
+                                </div>
+                                <button
+                                    disabled={loading}
+                                    className="w-full bg-green-600 text-white font-black uppercase tracking-[0.2em] py-5 rounded-xl hover:bg-green-700 transition duration-300 shadow-xl shadow-green-200 dark:shadow-none transform hover:-translate-y-1 flex items-center justify-center group"
+                                >
+                                    {loading ? "Authenticating..." : "Sign In"}
+                                    {!loading && <FiArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />}
+                                </button>
+                            </form>
+                            <p className="text-center text-gray-500">
+                                Don't have an account? <span onClick={() => navigate("/register")} className="text-indigo-600 font-bold hover:underline cursor-pointer">Sign Up</span>
+                            </p>
+                        </motion.div>
+                    ) : (
+                        <motion.div 
+                            key="otp-form"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="w-full max-w-md bg-white dark:bg-gray-900 p-10 rounded-3xl shadow-2xl space-y-8 text-center border border-gray-100 dark:border-gray-800 transition-colors"
+                        >
+                            <div className="bg-indigo-50 dark:bg-indigo-900/30 w-20 h-20 rounded-full flex items-center justify-center mx-auto text-indigo-600 dark:text-indigo-400 text-3xl shadow-inner">
+                                <FiShield />
+                            </div>
+                            <div className="space-y-2">
+                                <h1 className="text-3xl font-black text-gray-900 dark:text-white tracking-tighter">Two-Factor Auth</h1>
+                                <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Please enter the security code sent to <br/> <strong className="text-indigo-600 dark:text-indigo-400">{credentials.email}</strong></p>
+                            </div>
+                            <form onSubmit={handleVerifyOtp} className="space-y-6">
+                                <input 
+                                    type="text" 
+                                    maxLength="6"
+                                    className="w-full text-center text-4xl font-black tracking-[0.5em] py-6 border-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:border-indigo-500 rounded-2xl outline-none transition-all"
+                                    placeholder="••••••"
+                                    required
+                                    autoComplete="one-time-code"
+                                    onChange={(e) => setOtp(e.target.value)}
+                                />
+                                <button className="w-full bg-indigo-600 text-white font-black uppercase tracking-[0.2em] py-5 rounded-xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 dark:shadow-none transform hover:-translate-y-1">
+                                    Verify Code
+                                </button>
+                                <p className="text-gray-400 text-sm">Didn't receive code? <span onClick={handleResendOtp} className="text-indigo-600 font-bold cursor-pointer underline hover:text-indigo-800 transition-colors">Resend</span></p>
+                            </form>
+                        </motion.div>
+                    )}
 
-          {error && (
-            <p className="bg-red-100 text-red-600 p-2 rounded mb-4 text-sm">
-              {error}
-            </p>
-          )}
-          {success && (
-            <p className="bg-green-100 text-green-600 p-2 rounded mb-4 text-sm">
-              {success}
-            </p>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                placeholder="Your email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
+                </AnimatePresence>
             </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                name="password"
-                placeholder="Your password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition duration-300"
-            >
-              Login
-            </button>
-
-          </form>
         </div>
-      </div>
-    </div>
-  );
-}
+    );
+};
 
 export default Login;

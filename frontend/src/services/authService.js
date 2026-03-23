@@ -1,23 +1,28 @@
-import axios from "axios";
-
-const API_URL = "/api/auth";
+import API from "./api";
 
 export const registerUser = async (data) => {
-  const response = await axios.post(`${API_URL}/register`, data);
-  return response.data;
+  const res = await API.post("/auth/register", data);
+  return res.data;
 };
 
 export const verifyRegisterOtp = async (data) => {
-  const response = await axios.post(`${API_URL}/verify-register-otp`, data);
-  return response.data;
+  const res = await API.post("/auth/verify-register-otp", data);
+  return res.data;
 };
 
+
 export const loginUser = async (data) => {
-  const response = await axios.post(`${API_URL}/login`, data);
-  return response.data;
+  const res = await API.post("/auth/login", data);
+  return res.data;
 };
 
 export const verifyLoginOtp = async (data) => {
-  const response = await axios.post(`${API_URL}/verify-login-otp`, data);
-  return response.data;
+  const res = await API.post("/auth/verify-login-otp", data);
+  return res.data;
 };
+
+export const resendOtp = async (data) => {
+  const res = await API.post("/auth/resend-otp", data);
+  return res.data;
+};
+

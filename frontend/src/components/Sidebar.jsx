@@ -1,125 +1,85 @@
-import { NavLink } from "react-router-dom";
-import { useState } from "react";
-import {
-  FiMenu,
-  FiHome,
-  FiCalendar,
-  FiMessageCircle,
-  FiTrendingUp,
-  FiUser,
-  FiSettings,
-  FiHelpCircle,
-  FiGrid
+import React from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { 
+  FiHome, 
+  FiSearch, 
+  FiCalendar, 
+  FiPlusSquare, 
+  FiMail, 
+  FiUser, 
+  FiSettings, 
+  FiLogOut,
+  FiShield,
+  FiActivity,
+  FiAlertCircle
 } from "react-icons/fi";
 
 const Sidebar = () => {
-  const [open, setOpen] = useState(true);
-
-  const menu = [
-    { name: "Dashboard", icon: <FiHome />, path: "/dashboard" },
-    { name: "Schedule Pickup", icon: <FiCalendar />, path: "/schedule" },
-    { name: "Opportunities", icon: <FiGrid />, path: "/opportunities" },
-    { name: "Messages", icon: <FiMessageCircle />, path: "/messages" },
-    { name: "My Impact", icon: <FiTrendingUp />, path: "/impact" },
-  ];
-
-  const settings = [
-    { name: "My Profile", icon: <FiUser />, path: "/my-profile" },
-    { name: "Settings", icon: <FiSettings />, path: "/settings" },
-    { name: "Help & Support", icon: <FiHelpCircle />, path: "/help" },
-  ];
-
-  const linkStyle =
-    "flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition";
-
-  const activeStyle = "bg-green-50 text-green-600 font-medium";
-
+  const location = useLocation();
+  const navigate = useNavigate();
+  
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
+  const role = user?.role || "volunteer";
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate("/login");
+  };
+
+  const navItems = [
+    { name: "Dashboard", icon: <FiHome />, path: "/dashboard", roles: ["volunteer", "ngo", "admin"] },
+    { name: "Opportunities", icon: <FiSearch />, path: "/opportunities", roles: ["volunteer", "ngo", "admin"] },
+    { name: "Schedule Pickup", icon: <FiCalendar />, path: "/schedule", roles: ["volunteer", "admin"] },
+    { name: "Create Opportunity", icon: <FiPlusSquare />, path: "/create-opportunity", roles: ["ngo", "admin"] },
+    { name: "Messages", icon: <FiMail />, path: "/messages", roles: ["volunteer", "ngo", "admin"] },
+    { name: "My Profile", icon: <FiUser />, path: "/my-profile", roles: ["volunteer", "ngo", "admin"] },
+  ];
+
+  const adminItems = [
+    { name: "User Management", icon: <FiUser />, path: "/admin/users" },
+    { name: "Moderation", icon: <FiShield />, path: "/admin/moderation" },
+    { name: "System Reports", icon: <FiActivity />, path: "/admin/reports" },
+  ];
+
+  const renderLink = (item) => (
+    <Link
+      key={item.path}
+      to={item.path}
+      className={`flex items-center space-x-3 px-6 py-4 transition-all duration-300 group
+        ${location.pathname === item.path 
+          ? "bg-green-600/10 dark:bg-green-900/10 text-green-600 dark:text-green-400 border-r-4 border-green-600" 
+          : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-green-600 dark:hover:text-green-400"}
+      `}
+    >
+      <span className={`text-xl transition-transform group-hover:scale-110 ${location.pathname === item.path ? "text-green-600 dark:text-green-400" : "text-gray-400 dark:text-gray-600 group-hover:text-green-600 dark:group-hover:text-green-400"}`}>
+        {item.icon}
+      </span>
+      <span className="font-semibold text-sm tracking-wide uppercase">{item.name}</span>
+    </Link>
+  );
 
   return (
-    <div
-      className={`h-screen border-r bg-white p-4 flex flex-col justify-between transition-all duration-300 ${
-        open ? "w-75" : "w-20"
-      }`}
-    >
-      {/* TOP */}
-      <div>
-        {/* Toggle */}
-        <button
-          onClick={() => setOpen(!open)}
-          className="mb-6 text-xl text-gray-600"
-        >
-          <FiMenu />
-        </button>
-
-        {/* Logo */}
-        <h1 className="text-xl font-bold mb-6">
-          {open ? "WasteZero" : "WZ"}
-        </h1>
-
-        {/* User */}
-        {/* User - Only for Admin */}
-{user?.role === "admin" && (
-  <div className="flex items-center gap-3 mb-8">
-    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center font-bold">
-      {user?.name?.charAt(0)?.toUpperCase()}
-    </div>
-    {open && (
-      <div>
-        <p className="font-semibold text-sm">{user?.name}</p>
-        <p className="text-xs text-gray-500">Admin</p>
-      </div>
-    )}
-  </div>
-)}
-
-        {/* Main Menu */}
-        <div className="mb-6">
-          {open && (
-            <p className="text-xs text-gray-400 mb-2">MAIN MENU</p>
-          )}
-
-          {menu.map((item, i) => (
-            <NavLink
-              key={i}
-              to={item.path}
-              className={({ isActive }) =>
-                `${linkStyle} ${isActive ? activeStyle : "text-gray-600"}`
-              }
-            >
-              <span className="text-lg">{item.icon}</span>
-              {open && item.name}
-            </NavLink>
-          ))}
-        </div>
-
-        {/* Settings */}
-        <div>
-          {open && (
-            <p className="text-xs text-gray-400 mb-2">SETTINGS</p>
-          )}
-
-          {settings.map((item, i) => (
-            <NavLink
-              key={i}
-              to={item.path}
-              className={({ isActive }) =>
-                `${linkStyle} ${isActive ? activeStyle : "text-gray-600"}`
-              }
-            >
-              <span className="text-lg">{item.icon}</span>
-              {open && item.name}
-            </NavLink>
-          ))}
+    <div className="h-full bg-white dark:bg-gray-900 flex flex-col border-r border-gray-100 dark:border-gray-800 transition-colors duration-300">
+      {/* Branding */}
+      <div className="p-8 hidden md:block border-b border-gray-100 dark:border-gray-800">
+        <div className="flex items-center space-x-2 text-green-600">
+          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">W</div>
+          <span className="text-xl font-black uppercase text-gray-900 dark:text-white">WasteZero</span>
         </div>
       </div>
 
-      {/* DARK MODE */}
-      <div className="flex items-center justify-between mt-6">
-        {open && <span className="text-sm">Dark Mode</span>}
-        <input type="checkbox" className="toggle toggle-sm" />
-      </div>
+      <nav className="flex-1 py-4 overflow-y-auto">
+        <div className="px-6 py-4 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-2">Main Menu</div>
+        {navItems.filter(item => item.roles.includes(role)).map(renderLink)}
+
+        {role === "admin" && (
+          <div className="mt-8">
+            <div className="px-6 py-4 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-2">Administration</div>
+            {adminItems.map(renderLink)}
+          </div>
+        )}
+      </nav>
     </div>
   );
 };

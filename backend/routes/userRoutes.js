@@ -8,7 +8,9 @@ import {
   verifyRegisterOtp,
   loginUser,
   verifyLoginOtp,
+  resendOtp,
 } from "../controller/auth.js";
+
 
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
@@ -30,6 +32,9 @@ router.post("/login", loginUser);
 
 // Verify Login OTP → Generate JWT
 router.post("/verify-login-otp", verifyLoginOtp);
+
+// Resend OTP
+router.post("/resend-otp", resendOtp);
 
 
 // ============ PROTECTED ROUTES ============

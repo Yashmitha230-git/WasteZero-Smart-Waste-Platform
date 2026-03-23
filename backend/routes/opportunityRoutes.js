@@ -2,6 +2,7 @@ import express from "express";
 import upload from "../middleware/multer.js";
 import { createOpportunity, updateOpportunity } from "../controller/dashboardController.js";
 import Opportunity from "../model/opportunity.js";
+import User from "../model/user.js";
 import Notification from "../model/notification.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
@@ -200,5 +201,40 @@ router.put(
     }
   }
 );
+
+// ================= MATCHING ALGORITHM =================
+// GET /api/opportunity/matches/:userId
+router.get("/matches/:userId", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    // Build query based on proximity and skills
+    const matches = await Opportunity.aggregate([
+      {
+        $geoNear: {
+          near: user.locationCoords || { type: "Point", coordinates: [0, 0] },
+          distanceField: "distance",
+          maxDistance: 50 * 1000, 
+          spherical: true,
+          query: { status: "Open" }
+        }
+      },
+      {
+        $match: {
+          $or: [
+            { requiredSkills: { $in: user.skills } },
+            { wasteType: { $in: user.skills } }
+          ]
+        }
+      },
+      { $sort: { distance: 1 } }
+    ]);
+
+    res.json(matches);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 export default router;

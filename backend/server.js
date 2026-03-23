@@ -14,6 +14,7 @@ import messageRoutes from "./routes/messageRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoute.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import Notification from "./model/notification.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 import { getDashboardData } from "./controller/dashboardController.js";
 
@@ -32,13 +33,14 @@ app.use(express.json());
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-app.use("/api/auth", userRoutes);
+app.use("/api/auth", userRoutes); // auth routes: /login, /register, /verify-otp
 app.use("/api/opportunity", opportunityRoutes);
 app.use("/api/pickups", pickupRoutes);
-app.use("/api/users", userRoutes);
+app.use("/api/users", userRoutes); // user routes: GET / (list users), /me, etc.
 app.use("/api/messages", messageRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/admin", adminRoutes);
 
 const users = [];
 

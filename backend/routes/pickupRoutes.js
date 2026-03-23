@@ -17,10 +17,16 @@ router.post(
   authorizeRoles("volunteer"),
   async (req, res) => {
     try {
+      const { address, city, date, timeSlot, wasteTypes, notes } = req.body;
       const pickup = await Pickup.create({
-        ...req.body,
+        address,
+        city,
+        date,
+        timeSlot,
+        wasteTypes,
+        notes,
         volunteer: req.user._id,
-        status: "Pending", // default status
+        status: "Pending",
       });
 
       res.status(201).json(pickup);
@@ -35,6 +41,55 @@ router.post(
 // 🔹 GET ALL PICKUPS (Both NGO & Volunteer)
 // ===================================================
 router.get("/", protect, getPickups);
+
+// 🔹 GET USER-SPECIFIC PICKUPS
+router.get("/user/:id", protect, async (req, res) => {
+  try {
+    const pickups = await Pickup.find({ volunteer: req.params.id }).sort({ createdAt: -1 });
+    res.status(200).json(pickups);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching user pickups" });
+  }
+});
+
+// 🔹 DYNAMIC STATUS UPDATE
+router.put("/:id/status", protect, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ["Pending", "Accepted", "In Progress", "Completed", "Rejected", "Closed"];
+    
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const pickup = await Pickup.findById(req.params.id);
+    if (!pickup) return res.status(404).json({ message: "Pickup not found" });
+
+    // Permissions check: volunteer can cancel (Closed/Rejected?), NGO can update (Accepted, In Progress, Completed)
+    // For simplicity, let's allow the assigned actor to update.
+    
+    pickup.status = status;
+    if (req.user.role === 'ngo') {
+      pickup.ngo = req.user._id;
+    }
+    
+    await pickup.save();
+
+    // Create Notification
+    await Notification.create({
+      recipient: pickup.volunteer,
+      sender: req.user._id,
+      type: "pickup_status",
+      content: `Your pickup status is now: ${status}`,
+      link: "/dashboard",
+    });
+
+    res.status(200).json(pickup);
+  } catch (error) {
+    console.error("Error updating status:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // ===================================================
 // 🔹 NGO → ACCEPT PICKUP
