@@ -142,6 +142,10 @@ export const loginUser = async (req, res) => {
       return res.status(400).json({ message: "Please verify your email first" });
     }
 
+    if (user.isSuspended) {
+      return res.status(403).json({ message: "Your account has been suspended by the admin." });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
@@ -194,6 +198,10 @@ if (String(user.otp) !== String(otp)) {
 
 if (user.otpExpiry < Date.now()) {
   return res.status(400).json({ message: "OTP expired" });
+}
+
+if (user.isSuspended) {
+  return res.status(403).json({ message: "Your account has been suspended by the admin." });
 }
 
     user.otp = null;

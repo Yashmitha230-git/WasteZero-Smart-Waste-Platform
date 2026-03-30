@@ -1,31 +1,32 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, { createContext, useState, useEffect, useContext, useCallback } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
 
 const NotificationContext = createContext();
+const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState(null);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       const { data } = await axios.get("/api/notifications");
       setNotifications(data);
     } catch (error) {
       console.log("Fetch notifications error:", error);
     }
-  };
+  }, []);
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     try {
        const { data } = await axios.get("/api/notifications/unread-count");
        setUnreadCount(data.count);
     } catch (error) {
        console.log("Fetch unread count error:", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -33,13 +34,13 @@ export const NotificationProvider = ({ children }) => {
       fetchNotifications();
       fetchUnreadCount();
 
-      const newSocket = io("http://localhost:3001");
+      const newSocket = io(backendUrl);
       setSocket(newSocket);
 
       const userStr = localStorage.getItem("user");
       if (userStr) {
         const user = JSON.parse(userStr);
-        newSocket.emit("addUser", user._id);
+        newSocket.emit("addUser", user._id || user.id);
       }
 
       newSocket.on("newNotification", () => {
@@ -49,25 +50,63 @@ export const NotificationProvider = ({ children }) => {
 
       return () => newSocket.close();
     }
-  }, []);
+  }, [fetchNotifications, fetchUnreadCount]);
 
   const markAsRead = async (id) => {
     try {
       await axios.patch(`/api/notifications/${id}/read`);
-      fetchNotifications();
-      fetchUnreadCount();
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) =>
+          notification._id === id
+            ? { ...notification, isRead: true }
+            : notification
+        )
+      );
+      setUnreadCount((currentCount) => Math.max(0, currentCount - 1));
     } catch (error) {
        console.log("Mark as read error:", error);
+       fetchNotifications();
+       fetchUnreadCount();
     }
   };
 
   const markAllAsRead = async () => {
     try {
       await axios.patch("/api/notifications/read-all");
-      fetchNotifications();
-      fetchUnreadCount();
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) => ({
+          ...notification,
+          isRead: true,
+        }))
+      );
+      setUnreadCount(0);
     } catch (error) {
        console.log("Mark all as read error:", error);
+       fetchNotifications();
+       fetchUnreadCount();
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    try {
+      await axios.delete(`/api/notifications/${id}`);
+      setNotifications((currentNotifications) => {
+        const deletedNotification = currentNotifications.find(
+          (notification) => notification._id === id
+        );
+
+        if (deletedNotification && !deletedNotification.isRead) {
+          setUnreadCount((currentCount) => Math.max(0, currentCount - 1));
+        }
+
+        return currentNotifications.filter(
+          (notification) => notification._id !== id
+        );
+      });
+    } catch (error) {
+      console.log("Delete notification error:", error);
+      fetchNotifications();
+      fetchUnreadCount();
     }
   };
 
@@ -84,6 +123,7 @@ export const NotificationProvider = ({ children }) => {
         socket,
         markAsRead,
         markAllAsRead,
+        deleteNotification,
         fetchNotifications,
         clearNotifications,
       }}

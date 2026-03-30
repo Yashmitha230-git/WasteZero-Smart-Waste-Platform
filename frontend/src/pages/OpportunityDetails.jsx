@@ -12,6 +12,7 @@ export default function OpportunityDetails() {
   const [role, setRole] = useState("");
   const [userId, setUserId] = useState("");
   const [applied, setApplied] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,8 +25,15 @@ export default function OpportunityDetails() {
         setRole(storedUser.role);
         setUserId(storedUser.id || storedUser._id);
 
-        if (res.data?.applicants?.some(app => (app.user || app) === (storedUser.id || storedUser._id))) {
+        const matchingApplication = res.data?.applicants?.find((app) => {
+          const applicantId =
+            typeof app?.user === "object" ? app.user?._id : app?.user || app;
+          return applicantId === (storedUser.id || storedUser._id);
+        });
+
+        if (matchingApplication) {
           setApplied(true);
+          setApplicationStatus(matchingApplication.status || "pending");
         }
       } catch (err) {
         console.error(err);
@@ -59,6 +67,14 @@ export default function OpportunityDetails() {
       const res = await API.post(`/opportunity/apply/${data._id}`, {});
       toast.success(res.data.msg || "Application sent! Check your messages.");
       setApplied(true);
+      setApplicationStatus("pending");
+      setData((prev) => ({
+        ...prev,
+        applicants: [
+          ...(prev?.applicants || []),
+          { user: userId, status: "pending" },
+        ],
+      }));
     } catch (err) {
       console.error(err);
     }
@@ -68,6 +84,17 @@ export default function OpportunityDetails() {
     if (!imagePath) return "https://placehold.co/1200x600?text=WasteZero+Campaign";
     const cleanPath = imagePath.replace(/^\/+/, "");
     return cleanPath.startsWith("uploads") ? `/${cleanPath}` : `/uploads/${cleanPath}`;
+  };
+
+  const getApplicationLabel = () => {
+    switch (applicationStatus) {
+      case "accepted":
+        return "Accepted by NGO";
+      case "rejected":
+        return "Rejected by NGO";
+      default:
+        return "Application Sent";
+    }
   };
 
   return (
@@ -124,11 +151,18 @@ export default function OpportunityDetails() {
               <section className="space-y-4 pt-6 border-t border-gray-50 dark:border-gray-800 transition-colors">
                  <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Required Credentials</h2>
                  <div className="flex flex-wrap gap-3">
-                    {(data.requiredSkills ? data.requiredSkills.split(',') : ["Teamwork", "Sustainability Enthusiast"]).map(skill => (
-                        <span key={skill} className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-5 py-2 rounded-2xl text-xs font-bold border border-indigo-100 dark:border-indigo-800 transition-colors">
-                           {skill.trim()}
-                        </span>
-                    ))}
+                   {(data?.requiredSkills || ["Teamwork", "Sustainability Enthusiast"])
+  .toString()
+  .split(",")
+  .map((skill, index) => (
+    <span
+      key={index}
+      className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-5 py-2 rounded-2xl text-xs font-bold border border-indigo-100 dark:border-indigo-800 transition-colors"
+    >
+      {skill.trim()}
+    </span>
+))}
+                    
                  </div>
               </section>
            </div>
@@ -146,23 +180,36 @@ export default function OpportunityDetails() {
                             onClick={handleApply}
                             disabled={applied}
                             className={`w-full py-5 rounded-[2rem] font-black uppercase tracking-widest text-sm transition-all shadow-xl active:scale-95
-                                ${applied ? 'bg-green-600 text-white cursor-default' : 'bg-white text-gray-900 hover:bg-green-500 hover:text-white'}
+                                ${applied
+                                  ? applicationStatus === "rejected"
+                                    ? 'bg-red-500 text-white cursor-default'
+                                    : 'bg-green-600 text-white cursor-default'
+                                  : 'bg-white text-gray-900 hover:bg-green-500 hover:text-white'}
                             `}
                         >
-                            {applied ? <span className="flex items-center justify-center"><FiCheckCircle className="mr-2" /> Application Sent</span> : "Apply for Initiative"}
+                            {applied ? <span className="flex items-center justify-center"><FiCheckCircle className="mr-2" /> {getApplicationLabel()}</span> : "Apply for Initiative"}
                         </button>
                     )}
 
-                    {(role === "ngo" || role === "admin") && (
-                        <>
-                            <button onClick={() => navigate(`/edit-opportunity/${data._id}`)} className="w-full bg-white/10 hover:bg-white/20 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-sm transition-all flex items-center justify-center space-x-2">
-                                <FiEdit3 /> <span>Update Post</span>
-                            </button>
-                            <button onClick={handleDelete} className="w-full bg-red-500/20 hover:bg-red-500 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-sm transition-all flex items-center justify-center space-x-2 border border-red-500/30">
-                                <FiTrash2 /> <span>Terminate Post</span>
-                            </button>
-                        </>
-                    )}
+                    {/* UPDATE — ONLY NGO */}
+{role === "ngo" && (
+  <button
+    onClick={() => navigate(`/edit-opportunity/${data._id}`)}
+    className="w-full bg-white/10 hover:bg-white/20 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-sm transition-all flex items-center justify-center space-x-2"
+  >
+    <FiEdit3 /> <span>Update Post</span>
+  </button>
+)}
+
+{/* DELETE — NGO + ADMIN */}
+{(role === "ngo" || role === "admin") && (
+  <button
+    onClick={handleDelete}
+    className="w-full bg-red-500/20 hover:bg-red-500 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-sm transition-all flex items-center justify-center space-x-2 border border-red-500/30"
+  >
+    <FiTrash2 /> <span>Terminate Post</span>
+  </button>
+)}
                     
                     {role === "volunteer" && (
                         <button onClick={() => navigate("/messages")} className="w-full bg-white/5 border border-white/10 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-sm hover:bg-white/10 transition-all flex items-center justify-center space-x-2">

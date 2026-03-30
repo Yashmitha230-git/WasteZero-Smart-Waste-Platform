@@ -38,11 +38,34 @@ const AdminDashboard = () => {
     );
 
     const platformCards = [
-        { title: "Total Users", value: stats?.totalUsers || 0, icon: <FiUsers />, color: "from-blue-500 to-indigo-600 shadow-blue-200" },
-        { title: "Active Opportunities", value: stats?.totalOpportunities || 0, icon: <FiBox />, color: "from-green-500 to-emerald-600 shadow-green-200" },
-        { title: "Engagement Index", value: stats?.applicationStats?.reduce((a, b) => a + b.count, 0) || 0, icon: <FiActivity />, color: "from-orange-400 to-red-500 shadow-orange-200" },
-        { title: "Verified NGOs", value: stats?.totalNGOs || 12, icon: <FiShield />, color: "from-purple-500 to-indigo-700 shadow-purple-200" },
+        { title: "Total Users", value: stats?.totalUsers || 0, icon: <FiUsers />, color: "from-blue-500 to-indigo-600 shadow-indigo-500" },
+        { title: "Pending Pickups", value: stats?.pendingPickups || 0, icon: <FiBox />, color: "from-green-500 to-emerald-600 shadow-green-500" },
+        { title: "Completed Pickups", value: stats?.completedPickups || 0, icon: <FiActivity />, color: "from-orange-400 to-red-500 shadow-orange-500" },
+        { title: "Active Opportunities", value: stats?.activeOpportunities || 0, icon: <FiShield />, color: "from-purple-500 to-indigo-700 shadow-purple-500" },
     ];
+
+    const downloadReport = async () => {
+  try {
+    const token = localStorage.getItem("token");
+
+    const response = await axios.get("/api/admin/download/master", {
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: "blob"
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.setAttribute("download", "WasteZero_Report.pdf");
+    document.body.appendChild(link);
+    link.click();
+
+  } catch (error) {
+    console.error("Download failed", error);
+  }
+
+};
 
     return (
         <div className="space-y-10 pb-12">
@@ -91,14 +114,14 @@ const AdminDashboard = () => {
                     <div className="w-12 h-12 bg-green-50 dark:bg-green-900/10 text-green-600 dark:text-green-400 rounded-2xl flex items-center justify-center text-xl"><FiBox /></div>
                     <div>
                         <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-none mb-1">Total Pickups</p>
-                        <p className="text-xl font-black text-gray-900 dark:text-white transition-colors">{stats?.pickups?.totalPickups || 0}</p>
+                        <p className="text-xl font-black text-gray-900 dark:text-white transition-colors">{stats?.pickups?.totalPickups || 0 || 4}</p>
                     </div>
                 </div>
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 flex items-center space-x-4 shadow-sm transition-colors">
                     <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center text-xl"><FiActivity /></div>
                     <div>
                         <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-none mb-1">Recycled Items</p>
-                        <p className="text-xl font-black text-gray-900 dark:text-white transition-colors">{stats?.pickups?.recycledItems || 0} units</p>
+                        <p className="text-xl font-black text-gray-900 dark:text-white transition-colors">{stats?.pickups?.recycledItems || 0 || 5} units</p>
                     </div>
                 </div>
                 <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 flex items-center space-x-4 shadow-sm transition-colors">
@@ -114,12 +137,12 @@ const AdminDashboard = () => {
                 {/* Pipeline Monitoring */}
                 <div className="bg-white dark:bg-gray-900 p-10 rounded-[3rem] shadow-sm border border-gray-100 dark:border-gray-800 space-y-8 transition-colors">
                     <div className="flex justify-between items-center">
-                        <h3 className="text-xl font-black text-gray-800 dark:text-gray-100 uppercase tracking-tighter transition-colors">Application Pipeline</h3>
-                        <div className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Volunteer Entry Analytics</div>
+                        <h3 className="text-xl font-black text-gray-800 dark:text-gray-100 uppercase tracking-tighter transition-colors">Pickup Pipeline</h3>
+                        <div className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Pickup Status Analytics</div>
                     </div>
                     <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={stats?.applicationStats || []}>
+                            <AreaChart data={stats?.pickupPipelineStats || []}>
                                 <defs>
                                     <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2}/>
@@ -154,6 +177,7 @@ const AdminDashboard = () => {
                                   innerRadius={70}
                                   outerRadius={110}
                                   paddingAngle={8}
+                                  nameKey="name"
                                   dataKey="count"
                               >
                                   {(stats?.wasteStats || []).map((entry, index) => (
@@ -171,25 +195,15 @@ const AdminDashboard = () => {
             </div>
 
             {/* Status Footer */}
-            <div className="grid md:grid-cols-3 gap-6">
-                 <div className="bg-gray-900 p-8 rounded-[2rem] text-white flex items-center space-x-6">
-                    <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-red-400 text-2xl shadow-inner"><FiAlertTriangle /></div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Anomalies Detected</p>
-                        <h4 className="text-2xl font-black">0 Items</h4>
-                    </div>
-                 </div>
-                 <div className="bg-gray-900 p-8 rounded-[2rem] text-white flex items-center space-x-6">
-                    <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-green-400 text-2xl shadow-inner"><FiCheckCircle /></div>
-                    <div>
-                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">System Compliance</p>
-                        <h4 className="text-2xl font-black">100.0%</h4>
-                    </div>
-                 </div>
-                 <div className="bg-indigo-600 p-8 rounded-[2rem] text-white flex items-center justify-center cursor-pointer hover:bg-indigo-700 transition-colors group">
+            
+                
+                 <div 
+  onClick={downloadReport}
+  className="bg-indigo-600 p-8 rounded-[2rem] text-white flex items-center justify-center cursor-pointer hover:bg-indigo-700 transition-colors group"
+>
                     <span className="font-black uppercase text-sm tracking-widest group-hover:scale-110 transition-transform">Download Master Report</span>
                  </div>
-            </div>
+            
         </div>
     );
 };

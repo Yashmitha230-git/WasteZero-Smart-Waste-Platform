@@ -5,30 +5,27 @@ import { motion } from "framer-motion";
 
 export default function Layout() {
   return (
-    <div className="h-screen flex flex-col bg-gray-50/50 dark:bg-gray-950 transition-colors duration-300">
-      {/* 🔹 Top Navbar */}
+    <div className="min-h-screen flex flex-col bg-gray-50/50 dark:bg-gray-950 transition-colors duration-300">
       <Navbar />
 
-      {/* 🔹 Sidebar + Content Container */}
       <div className="flex flex-1 overflow-hidden">
-        
-        {/* Sidebar (Desktop only or Drawer approach) */}
-        <aside className="w-80 flex-shrink-0 bg-white dark:bg-gray-900 shadow-xl shadow-gray-100 dark:shadow-none z-40 transition-colors duration-300">
+        <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0 bg-white dark:bg-gray-900 shadow-xl shadow-gray-100 dark:shadow-none z-40 transition-colors duration-300">
           <Sidebar />
         </aside>
 
-        {/* Main Page Content */}
         <main className="flex-1 overflow-y-auto relative bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-10 max-w-[1600px] mx-auto min-h-full"
+            className="max-w-[1600px] mx-auto min-h-full px-4 py-6 sm:px-6 sm:py-8 lg:p-10 pb-28 lg:pb-10"
           >
-            {/* The Outlet renders the current route's page component */}
             <Outlet />
           </motion.div>
         </main>
+      </div>
 
+      <div className="lg:hidden">
+        <Sidebar />
       </div>
     </div>
   );

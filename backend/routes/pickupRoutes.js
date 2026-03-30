@@ -1,8 +1,10 @@
 import express from "express";
 import Pickup from "../model/pickup.js";
 import Notification from "../model/notification.js";
+import User from "../model/user.js";
 import { createPickup, getPickups } from "../controller/dashboardController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
+import { emitNotificationToUser } from "../utils/socket.js";
 
 const router = express.Router();
 
@@ -29,6 +31,20 @@ router.post(
         status: "Pending",
       });
 
+      const recipients = await User.find({ role: { $in: ["ngo", "admin"] } }).select("_id");
+      if (recipients.length > 0) {
+        const notifications = recipients.map((recipient) => ({
+          recipient: recipient._id,
+          sender: req.user._id,
+          type: "pickup_status",
+          content: `${req.user.name} scheduled a pickup request in ${city}.`,
+          link: "/notifications",
+        }));
+
+        await Notification.insertMany(notifications);
+        recipients.forEach((recipient) => emitNotificationToUser(recipient._id));
+      }
+
       res.status(201).json(pickup);
     } catch (error) {
       console.error("Error creating pickup:", error);
@@ -45,7 +61,10 @@ router.get("/", protect, getPickups);
 // 🔹 GET USER-SPECIFIC PICKUPS
 router.get("/user/:id", protect, async (req, res) => {
   try {
-    const pickups = await Pickup.find({ volunteer: req.params.id }).sort({ createdAt: -1 });
+    const volunteerId =
+      req.user.role === "volunteer" ? req.user._id : req.params.id;
+
+    const pickups = await Pickup.find({ volunteer: volunteerId }).sort({ createdAt: -1 });
     res.status(200).json(pickups);
   } catch (error) {
     res.status(500).json({ message: "Error fetching user pickups" });
@@ -76,13 +95,19 @@ router.put("/:id/status", protect, async (req, res) => {
     await pickup.save();
 
     // Create Notification
-    await Notification.create({
-      recipient: pickup.volunteer,
-      sender: req.user._id,
-      type: "pickup_status",
-      content: `Your pickup status is now: ${status}`,
-      link: "/dashboard",
-    });
+    const isSelfNotification =
+      pickup.volunteer?.toString() === req.user._id.toString();
+
+    if (!isSelfNotification) {
+      await Notification.create({
+        recipient: pickup.volunteer,
+        sender: req.user._id,
+        type: "pickup_status",
+        content: `Your pickup status is now: ${status}`,
+        link: "/dashboard",
+      });
+      emitNotificationToUser(pickup.volunteer);
+    }
 
     res.status(200).json(pickup);
   } catch (error) {
@@ -102,7 +127,7 @@ router.put(
     try {
       const pickup = await Pickup.findByIdAndUpdate(
         req.params.id,
-        { status: "Accepted" },
+        { status: "Accepted", ngo: req.user._id },
         { new: true }
       );
 
@@ -118,6 +143,7 @@ router.put(
         content: `Your pickup request has been accepted by ${req.user.name}`,
         link: "/dashboard",
       });
+      emitNotificationToUser(pickup.volunteer);
 
       res.status(200).json(pickup);
     } catch (error) {
@@ -138,7 +164,7 @@ router.put(
     try {
       const pickup = await Pickup.findByIdAndUpdate(
         req.params.id,
-        { status: "Rejected" },
+        { status: "Rejected", ngo: req.user._id },
         { new: true }
       );
 
@@ -154,6 +180,7 @@ router.put(
         content: `Your pickup request has been rejected by ${req.user.name}`,
         link: "/dashboard",
       });
+      emitNotificationToUser(pickup.volunteer);
 
       res.status(200).json(pickup);
     } catch (error) {
@@ -174,7 +201,7 @@ router.put(
     try {
       const pickup = await Pickup.findByIdAndUpdate(
         req.params.id,
-        { status: "Closed" },
+        { status: "Closed", ngo: req.user._id },
         { new: true }
       );
 
@@ -190,6 +217,7 @@ router.put(
         content: `Your pickup has been marked as completed by ${req.user.name}`,
         link: "/dashboard",
       });
+      emitNotificationToUser(pickup.volunteer);
 
       res.status(200).json(pickup);
     } catch (error) {

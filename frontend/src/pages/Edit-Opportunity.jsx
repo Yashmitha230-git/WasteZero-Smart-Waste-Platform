@@ -70,7 +70,7 @@ export default function EditOpportunity() {
     try {
       const token = localStorage.getItem("token");
       const data = new FormData();
-
+console.log("TOKEN:", token);
       Object.keys(formData).forEach(key => {
         data.append(key, formData[key]);
       });

@@ -5,10 +5,29 @@ import Opportunity from "../model/opportunity.js";
 import User from "../model/user.js";
 import Notification from "../model/notification.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
+import { emitNotificationToUser } from "../utils/socket.js";
+import { scoreOpportunityForVolunteer } from "../utils/matching.js";
 
 const router = express.Router();
 
 console.log("Opportunity routes loaded");
+
+const normalizeApplicants = (applicants = []) =>
+  applicants.map((applicant) => {
+    if (applicant?.user) {
+      return {
+        user: applicant.user,
+        status: applicant.status || "pending",
+        appliedAt: applicant.appliedAt || new Date(),
+      };
+    }
+
+    return {
+      user: applicant,
+      status: "pending",
+      appliedAt: new Date(),
+    };
+  });
 
 // ================= CREATE =================
 // Admin & NGO can create
@@ -26,6 +45,46 @@ router.get("/", async (req, res) => {
   try {
     const data = await Opportunity.find().sort({ createdAt: -1 });
     res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/matches/top", protect, authorizeRoles("volunteer"), async (req, res) => {
+  try {
+    const volunteer = await User.findById(req.user._id).select("name skills location locationCoords");
+    if (!volunteer) {
+      return res.status(404).json({ msg: "Volunteer not found" });
+    }
+
+    const opportunities = await Opportunity.find({ status: "Open" })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    const scoredMatches = [];
+
+    for (const opportunity of opportunities) {
+      const match = await scoreOpportunityForVolunteer(volunteer, opportunity);
+      if (!match.isMatch) continue;
+
+      scoredMatches.push({
+        ...opportunity.toObject(),
+        matchScore: match.score,
+        distanceKm: match.distanceKm,
+        matchedSkills: match.matchedSkills,
+        wasteMatch: match.wasteMatch,
+      });
+    }
+
+    scoredMatches.sort((a, b) => {
+      if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
+
+      const aDistance = a.distanceKm ?? Number.MAX_SAFE_INTEGER;
+      const bDistance = b.distanceKm ?? Number.MAX_SAFE_INTEGER;
+      return aDistance - bDistance;
+    });
+
+    res.json(scoredMatches.slice(0, 6));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -49,39 +108,7 @@ router.put(
   protect,
   authorizeRoles("ngo"),
   upload.single("image"),
-  async (req, res) => {
-    try {
-      const opportunity = await Opportunity.findById(req.params.id);
-
-      if (!opportunity)
-        return res.status(404).json({ msg: "Opportunity not found" });
-
-      // 🔐 If NGO → allow only if he created it
-      if (
-  req.user.role === "ngo" &&
-  opportunity.createdBy &&
-  opportunity.createdBy.toString() !== req.user._id.toString()
-) {
-  return res.status(403).json({ msg: "Not authorized to edit this opportunity" });
-}
-
-      const updated = await Opportunity.findByIdAndUpdate(
-        req.params.id,
-        {
-          ...req.body,
-          image: req.file
-            ? `/uploads/${req.file.filename}`
-            : opportunity.image,
-        },
-        { new: true }
-      );
-
-      res.json(updated);
-
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  }
+  updateOpportunity
 );
 // ================= DELETE =================
 // Admin & NGO can delete
@@ -127,8 +154,10 @@ router.post(
       if (!opportunity)
         return res.status(404).json({ msg: "Opportunity not found" });
 
+      opportunity.applicants = normalizeApplicants(opportunity.applicants);
+
       const alreadyApplied = opportunity.applicants.some(
-        (app) => app.user.toString() === req.user._id.toString()
+        (app) => app.user?.toString() === req.user._id.toString()
       );
 
       if (alreadyApplied) {
@@ -138,9 +167,32 @@ router.post(
       opportunity.applicants.push({
         user: req.user._id,
         status: "pending",
+        appliedAt: new Date(),
       });
 
       await opportunity.save();
+      await Notification.create({
+        recipient: opportunity.createdBy,
+        sender: req.user._id,
+        type: "opportunity_status",
+        content: `${req.user.name} applied for "${opportunity.title}". Review the request to accept or reject.`,
+        link: "/dashboard",
+      });
+      emitNotificationToUser(opportunity.createdBy);
+
+      const admins = await User.find({ role: "admin" }).select("_id");
+      if (admins.length > 0) {
+        const adminNotifications = admins.map((admin) => ({
+          recipient: admin._id,
+          sender: req.user._id,
+          type: "opportunity_status",
+          content: `${req.user.name} applied for "${opportunity.title}".`,
+          link: "/notifications",
+        }));
+
+        await Notification.insertMany(adminNotifications);
+        admins.forEach((admin) => emitNotificationToUser(admin._id));
+      }
 
       res.json({ success: true, msg: "Applied successfully" });
 
@@ -158,9 +210,15 @@ router.put(
   async (req, res) => {
     try {
       const { opportunityId, userId } = req.params;
-      const { status } = req.body; // accepted or rejected
+      const { status } = req.body;
+      const normalizedStatus =
+        status === "accept"
+          ? "accepted"
+          : status === "reject"
+            ? "rejected"
+            : status;
 
-      if (!["accepted", "rejected"].includes(status)) {
+      if (!["accepted", "rejected"].includes(normalizedStatus)) {
         return res.status(400).json({ msg: "Invalid status" });
       }
 
@@ -174,25 +232,27 @@ router.put(
         return res.status(403).json({ msg: "Not authorized" });
       }
 
+      opportunity.applicants = normalizeApplicants(opportunity.applicants);
+
       const applicant = opportunity.applicants.find(
-        (app) => app.user.toString() === userId
+        (app) => app.user?.toString() === userId
       );
 
       if (!applicant)
         return res.status(404).json({ msg: "Applicant not found" });
 
-      applicant.status = status;
+      applicant.status = normalizedStatus;
 
       await opportunity.save();
 
-      // Create Notification for volunteer
       await Notification.create({
         recipient: userId,
         sender: req.user._id,
         type: "opportunity_status",
-        content: `Your application for "${opportunity.title}" has been ${status} by ${req.user.name}`,
+        content: `Your application for "${opportunity.title}" was ${normalizedStatus} by ${req.user.name}.`,
         link: "/opportunities",
       });
+      emitNotificationToUser(userId);
 
       res.json({ success: true, opportunity });
 

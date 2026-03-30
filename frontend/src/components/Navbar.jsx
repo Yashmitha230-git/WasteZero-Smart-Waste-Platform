@@ -1,12 +1,14 @@
 import React from "react";
-import { FiBell, FiSearch, FiChevronDown, FiUser, FiSettings, FiLogOut, FiSun, FiMoon } from "react-icons/fi";
+import { FiBell, FiChevronDown, FiUser, FiSettings, FiLogOut, FiSun, FiMoon } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
+import { useNotifications } from "../context/NotificationContext";
 
 const Navbar = () => {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
+    const { unreadCount } = useNotifications();
     const storedUser = localStorage.getItem("user");
     const user = storedUser ? JSON.parse(storedUser) : null;
     const [dropdownOpen, setDropdownOpen] = React.useState(false);
@@ -17,51 +19,48 @@ const Navbar = () => {
     };
 
     return (
-        <header className="h-20 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-8 z-50 relative transition-colors duration-300">
-            <div className="flex items-center space-x-8">
-                {/* Branding (Mobile/Small Desktop) */}
-                <div className="flex items-center space-x-2 text-green-600 lg:hidden">
+        <header className="min-h-20 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 z-50 relative transition-colors duration-300">
+            <div className="flex items-center min-w-0 space-x-3 sm:space-x-8">
+                <div className="flex items-center min-w-0 space-x-2 text-green-600">
                     <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">W</div>
-                    <span className="text-xl font-black uppercase text-gray-900 dark:text-white">WasteZero</span>
-                </div>
-
-                {/* Search Bar - Hidden on Mobile */}
-                <div className="relative group hidden lg:block">
-                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-green-600 transition-colors" />
-                    <input 
-                        type="text" 
-                        placeholder="Search for opportunities..."
-                        className="bg-gray-50/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-full py-2.5 pl-12 pr-6 outline-none focus:ring-2 focus:ring-green-500 focus:bg-white dark:focus:bg-gray-800 w-80 text-sm transition-all dark:text-gray-200"
-                    />
+                    <span className="text-base sm:text-xl font-black uppercase text-gray-900 dark:text-white truncate">WasteZero</span>
                 </div>
             </div>
 
-            <div className="flex items-center space-x-5 md:space-x-8">
+            <div className="flex items-center flex-shrink-0 space-x-2 sm:space-x-4 md:space-x-6">
                 {/* Theme Toggle */}
                 <button 
                     onClick={toggleTheme}
-                    className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400"
+                    className="p-2.5 sm:p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400"
                     title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
                 >
                     {theme === 'light' ? <FiMoon className="text-xl" /> : <FiSun className="text-xl" />}
                 </button>
 
                 {/* Notifications */}
-                <div className="relative group cursor-pointer p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-green-600">
+                <button
+                    type="button"
+                    onClick={() => navigate("/notifications")}
+                    className="relative group cursor-pointer p-2.5 sm:p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-green-600"
+                >
                     <FiBell className="text-xl" />
-                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900 ring-2 ring-red-500 animate-pulse"></span>
-                </div>
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 bg-red-500 text-white rounded-full border-2 border-white dark:border-gray-900 text-[10px] font-black flex items-center justify-center animate-pulse">
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                    )}
+                </button>
 
                 {/* Profile Section */}
                 <div className="relative">
                     <div 
                         onClick={() => setDropdownOpen(!dropdownOpen)}
-                        className="flex items-center space-x-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 px-4 py-2 rounded-2xl transition-all"
+                        className="flex items-center space-x-2 sm:space-x-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 px-2 sm:px-4 py-2 rounded-2xl transition-all max-w-[180px] sm:max-w-none"
                     >
                         <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-indigo-100 uppercase overflow-hidden">
                             {user?.name?.charAt(0) || "U"}
                         </div>
-                        <div className="hidden md:block">
+                        <div className="hidden md:block min-w-0">
                             <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-none">{user?.name || "User Account"}</p>
                             <span className="text-[10px] font-black uppercase text-green-600 dark:text-green-400 tracking-widest">{user?.role || "Volunteer"}</span>
                         </div>

@@ -62,18 +62,18 @@ export default function CreateOpportunity() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-10">
+    <div className="max-w-4xl mx-auto py-4 sm:py-6 lg:py-10">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="bg-white dark:bg-gray-900 rounded-[3rem] shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden transition-colors"
       >
-        <div className="bg-indigo-600 dark:bg-indigo-700 p-12 text-white text-center space-y-2">
-            <h1 className="text-4xl font-black tracking-tight">Post New Opportunity</h1>
+        <div className="bg-indigo-600 dark:bg-indigo-700 p-6 sm:p-8 lg:p-12 text-white text-center space-y-2">
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Post New Opportunity</h1>
             <p className="text-indigo-100 dark:text-indigo-200 font-medium">Define a new community initiative for smart waste management.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-12 space-y-10">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-8 lg:p-12 space-y-8 sm:space-y-10">
           
           {/* General Information */}
           <section className="space-y-6">
@@ -108,7 +108,7 @@ export default function CreateOpportunity() {
           </section>
 
           {/* Logistics */}
-          <section className="grid md:grid-cols-2 gap-8">
+          <section className="grid md:grid-cols-2 gap-6 lg:gap-8">
              <div className="space-y-6">
                 <div className="flex items-center space-x-3 text-green-600 dark:text-green-400 mb-2">
                     <FiMapPin className="text-2xl" />
@@ -135,7 +135,7 @@ export default function CreateOpportunity() {
                     </datalist>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
                         <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest pl-1">Event Date</label>
                         <input type="date" name="date" required onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-800 dark:text-white border-none rounded-2xl py-4 px-4 outline-none focus:ring-2 focus:ring-green-500 font-bold transition-all" />
@@ -178,7 +178,7 @@ export default function CreateOpportunity() {
                 <h2 className="text-lg font-black uppercase tracking-widest">Media Assets</h2>
             </div>
             
-            <div className="relative group cursor-pointer h-64 bg-gray-50 dark:bg-gray-800 rounded-[2.5rem] border-2 border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center transition-all hover:bg-white dark:hover:bg-gray-800 hover:border-indigo-400 dark:hover:border-indigo-500 overflow-hidden">
+            <div className="relative group cursor-pointer h-52 sm:h-64 bg-gray-50 dark:bg-gray-800 rounded-[2.5rem] border-2 border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center transition-all hover:bg-white dark:hover:bg-gray-800 hover:border-indigo-400 dark:hover:border-indigo-500 overflow-hidden">
                 {preview ? (
                     <>
                         <img src={preview} className="absolute inset-0 w-full h-full object-cover opacity-80" />

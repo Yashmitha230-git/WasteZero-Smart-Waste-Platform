@@ -103,13 +103,17 @@ const UserManagement = () => {
                     </span>
                   </td>
                   <td className="px-4 py-6">
-                    {user.isVerified ? (
+                    {user.isSuspended ? (
+                      <span className="flex items-center text-red-500 dark:text-red-400 text-[10px] font-black uppercase tracking-widest">
+                        <span className="w-2 h-2 bg-red-500 rounded-full mr-2 shadow-[0_0_10px_rgba(239,68,68,0.4)]"></span> Suspended
+                      </span>
+                    ) : user.isVerified ? (
                       <span className="flex items-center text-green-600 dark:text-green-400 text-[10px] font-black uppercase tracking-widest">
                         <span className="w-2 h-2 bg-green-500 rounded-full mr-2 shadow-[0_0_10px_rgba(34,197,94,0.4)]"></span> Active
                       </span>
                     ) : (
-                      <span className="flex items-center text-red-500 dark:text-red-400 text-[10px] font-black uppercase tracking-widest">
-                        <span className="w-2 h-2 bg-red-500 rounded-full mr-2 shadow-[0_0_10px_rgba(239,68,68,0.4)]"></span> Suspended
+                      <span className="flex items-center text-amber-500 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest">
+                        <span className="w-2 h-2 bg-amber-500 rounded-full mr-2 shadow-[0_0_10px_rgba(245,158,11,0.4)]"></span> Unverified
                       </span>
                     )}
                   </td>
@@ -117,12 +121,12 @@ const UserManagement = () => {
                     <button 
                       onClick={() => toggleStatus(user._id)}
                       className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                        user.isVerified 
-                          ? "bg-rose-50 dark:bg-rose-900/10 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white" 
-                          : "bg-green-50 dark:bg-green-900/10 text-green-600 dark:text-green-400 hover:bg-green-600 hover:text-white"
+                        user.isSuspended
+                          ? "bg-green-50 dark:bg-green-900/10 text-green-600 dark:text-green-400 hover:bg-green-600 hover:text-white"
+                          : "bg-rose-50 dark:bg-rose-900/10 text-rose-600 dark:text-rose-400 hover:bg-rose-600 hover:text-white"
                       }`}
                     >
-                      {user.isVerified ? "Suspend" : "Activate"}
+                      {user.isSuspended ? "Activate" : "Suspend"}
                     </button>
                   </td>
                 </tr>

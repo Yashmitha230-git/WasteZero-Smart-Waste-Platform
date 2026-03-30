@@ -4,6 +4,7 @@ import axios from "axios";
 import { motion } from "framer-motion";
 import { FiMapPin, FiClock, FiStar, FiArrowRight, FiActivity, FiZap, FiTarget, FiBox } from "react-icons/fi";
 import toast from "react-hot-toast";
+import { useNotifications } from "../context/NotificationContext";
 
 const statsConfig = [
     { title: "Total Pickups", key: "totalPickups", icon: <FiBox />, color: "text-blue-600", bg: "bg-blue-50" },
@@ -12,34 +13,106 @@ const statsConfig = [
     { title: "Impact Hours", key: "volunteerHours", icon: <FiActivity />, color: "text-orange-600", bg: "bg-orange-50" },
 ];
 
+const CO2_FACTORS = {
+  plastic: 6,
+  paper: 3,
+  metal: 9,
+  glass: 1,
+  electronic: 8,
+  electronics: 8,
+  "electronic waste": 8,
+  "e-waste": 8,
+  ewaste: 8,
+};
+
+const buildVolunteerStatsFromPickups = (pickups = []) => {
+  const totalPickups = pickups.length;
+  const recycledItems = pickups.reduce(
+    (sum, pickup) => sum + (Array.isArray(pickup.wasteTypes) ? pickup.wasteTypes.length : 0),
+    0
+  );
+  const co2Saved = pickups.reduce((sum, pickup) => {
+    const pickupCo2 = (pickup.wasteTypes || []).reduce((pickupSum, type) => {
+      const normalizedType = type?.toString().trim().toLowerCase();
+      return pickupSum + (CO2_FACTORS[normalizedType] || 0);
+    }, 0);
+
+    return sum + pickupCo2;
+  }, 0);
+  const volunteerHours = pickups.filter((pickup) =>
+    ["Accepted", "In Progress", "Completed", "Closed"].includes(pickup.status)
+  ).length * 2;
+
+  return {
+    totalPickups,
+    recycledItems,
+    co2Saved,
+    volunteerHours,
+  };
+};
+
 export default function VolunteerDashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [topMatches, setTopMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { notifications, socket, fetchNotifications } = useNotifications();
 
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const [dashRes, matchRes] = await Promise.all([
-          axios.get("/api/dashboard", { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get("/api/opportunity/matches/top", { headers: { Authorization: `Bearer ${token}` } })
-        ]);
-        setData(dashRes.data);
-        setTopMatches(Array.isArray(matchRes.data) ? matchRes.data : []);
-      } catch (err) {
-        console.error("Dashboard error:", err);
-        // toast.error("Failed to load dashboard data");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchData = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
 
+    try {
+      const token = localStorage.getItem("token");
+      const [dashRes, matchRes, profileRes] = await Promise.all([
+        axios.get("/api/dashboard", { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get("/api/opportunity/matches/top", { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get("/api/users/me", { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      const profileUser = profileRes.data || {};
+      const currentUserId = profileUser._id || profileUser.id || storedUser.id || storedUser._id;
+      const pickupRes = currentUserId
+        ? await axios.get(`/api/pickups/user/${currentUserId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+        : { data: [] };
+
+      const volunteerPickups = Array.isArray(pickupRes.data) ? pickupRes.data : [];
+      const derivedStats = buildVolunteerStatsFromPickups(volunteerPickups);
+
+      setData({
+        ...dashRes.data,
+        stats: derivedStats,
+        pickups: volunteerPickups.slice(0, 5),
+      });
+      setTopMatches(Array.isArray(matchRes.data) ? matchRes.data : []);
+    } catch (err) {
+      console.error("Dashboard error:", err);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const refreshDashboard = () => {
+      fetchData({ silent: true });
+      fetchNotifications();
+    };
+
+    socket.on("newNotification", refreshDashboard);
+
+    return () => {
+      socket.off("newNotification", refreshDashboard);
+    };
+  }, [socket, fetchNotifications]);
 
   if (loading) {
     return (
@@ -53,20 +126,24 @@ export default function VolunteerDashboard() {
   const stats = data?.stats || {};
   const pickups = data?.pickups || [];
   const breakdown = data?.breakdown || [];
+  const volunteerApplications = data?.volunteerApplications || [];
+  const opportunityNotifications = notifications
+    .filter((notification) => notification.type === "opportunity_status")
+    .slice(0, 5);
 
   return (
-    <div className="space-y-10 pb-10">
+    <div className="space-y-6 sm:space-y-8 lg:space-y-10 pb-10">
       {/* ── Welcome Header ─────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white tracking-tight">
             Hi, <span className="text-green-600 font-black">{storedUser.name || "Volunteer"}</span>!
           </h1>
           <p className="text-gray-500 dark:text-gray-400 font-medium tracking-tight">Here's your environmental impact for this month.</p>
         </div>
         <button 
           onClick={() => navigate("/schedule")}
-          className="bg-green-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-green-700 transition-all shadow-xl shadow-green-100 dark:shadow-green-900/10 flex items-center space-x-2 active:scale-95"
+          className="w-full md:w-auto bg-green-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-green-700 transition-all shadow-xl shadow-green-100 dark:shadow-green-900/10 flex items-center justify-center space-x-2 active:scale-95"
         >
           <span>Schedule New Pickup</span>
           <FiArrowRight />
@@ -81,7 +158,7 @@ export default function VolunteerDashboard() {
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col items-center text-center space-y-3 cursor-default hover:shadow-xl dark:hover:shadow-green-900/5 transition-all group"
+            className="bg-white dark:bg-gray-900 p-6 sm:p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col items-center text-center space-y-3 cursor-default hover:shadow-xl dark:hover:shadow-green-900/5 transition-all group"
           >
             <div className={`${stat.bg} ${stat.color} dark:bg-opacity-10 p-4 rounded-2xl text-2xl group-hover:scale-110 transition-transform`}>
               {stat.icon}
@@ -92,10 +169,10 @@ export default function VolunteerDashboard() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-10">
+      <div className="grid lg:grid-cols-3 gap-6 lg:gap-10">
         {/* ── Matching Opportunities ────────────────────────────────── */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between px-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-2">
             <h2 className="text-2xl font-black text-gray-900 dark:text-white flex items-center space-x-3 tracking-tighter">
               <FiStar className="text-yellow-500" />
               <span>Smart Matches For You</span>
@@ -116,7 +193,7 @@ export default function VolunteerDashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
                 onClick={() => navigate(`/opportunity/${opp._id}`)}
-                className="bg-white dark:bg-gray-900 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-2xl hover:border-green-200 dark:hover:border-green-700 transition-all cursor-pointer group flex flex-col"
+                className="bg-white dark:bg-gray-900 p-6 sm:p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-2xl hover:border-green-200 dark:hover:border-green-700 transition-all cursor-pointer group flex flex-col"
               >
                 <div className="flex justify-between items-start mb-6">
                   <div className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">
@@ -150,10 +227,54 @@ export default function VolunteerDashboard() {
         </div>
 
         {/* ── Recent Activity ───────────────────────────────────────── */}
-        <div className="bg-white dark:bg-gray-900 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 self-start space-y-8">
+        <div className="bg-white dark:bg-gray-900 p-6 sm:p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 self-start space-y-8">
           <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight uppercase tracking-widest text-[10px]">Recent Activity</h2>
           <div className="space-y-6">
-            {pickups.length > 0 ? pickups.slice(0, 5).map((pickup, i) => (
+            {volunteerApplications.length > 0 ? volunteerApplications.slice(0, 5).map((application) => {
+              const isAccepted = application.applicationStatus === "accepted";
+              const isRejected = application.applicationStatus === "rejected";
+
+              return (
+                <div key={application._id} className="flex items-start space-x-4">
+                  <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${
+                    isAccepted
+                      ? "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"
+                      : isRejected
+                        ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.35)]"
+                        : "bg-yellow-500"
+                  }`}></div>
+                  <div className="space-y-1">
+                    <p className="text-[13px] font-black text-gray-800 dark:text-gray-200 leading-none">
+                      {isAccepted ? "Application Accepted" : isRejected ? "Application Rejected" : "Application Pending"}
+                    </p>
+                    <p className="text-xs text-gray-400 font-medium max-w-[220px]">
+                      {application.title} in {application.location}
+                    </p>
+                  </div>
+                </div>
+              );
+            }) : opportunityNotifications.length > 0 ? opportunityNotifications.map((notification) => {
+              const isAccepted = notification.content?.toLowerCase().includes("accepted");
+              const isRejected = notification.content?.toLowerCase().includes("rejected");
+
+              return (
+                <div key={notification._id} className="flex items-start space-x-4">
+                  <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${
+                    isAccepted
+                      ? "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"
+                      : isRejected
+                        ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.35)]"
+                        : "bg-yellow-500"
+                  }`}></div>
+                  <div className="space-y-1">
+                    <p className="text-[13px] font-black text-gray-800 dark:text-gray-200 leading-none">
+                      {isAccepted ? "Application Accepted" : isRejected ? "Application Rejected" : "Application Update"}
+                    </p>
+                    <p className="text-xs text-gray-400 font-medium max-w-[220px]">{notification.content}</p>
+                  </div>
+                </div>
+              );
+            }) : pickups.length > 0 ? pickups.slice(0, 5).map((pickup, i) => (
               <div key={i} className="flex items-start space-x-4">
                 <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${
                   pickup.status === 'Accepted' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 

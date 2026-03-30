@@ -4,7 +4,7 @@ import { FiBell, FiMessageCircle, FiTruck, FiGrid } from "react-icons/fi";
 import { format } from "timeago.js";
 
 const Notifications = () => {
-  const { notifications, markAsRead, markAllAsRead, fetchNotifications } = useNotifications();
+  const { notifications, markAsRead, markAllAsRead, deleteNotification, fetchNotifications } = useNotifications();
 
   useEffect(() => {
     fetchNotifications();
@@ -69,9 +69,21 @@ const Notifications = () => {
                     <p className={`text-base tracking-tight ${n.isRead ? "text-gray-600 dark:text-gray-400 font-medium" : "text-gray-900 dark:text-white font-black"}`}>
                       {n.content}
                     </p>
-                    {!n.isRead && (
-                      <span className="w-2.5 h-2.5 bg-green-500 rounded-full shrink-0 mt-2 shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse"></span>
-                    )}
+                    <div className="flex items-center gap-3 shrink-0">
+                      {!n.isRead && (
+                        <span className="w-2.5 h-2.5 bg-green-500 rounded-full mt-2 shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse"></span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          deleteNotification(n._id);
+                        }}
+                        className="px-4 py-2 rounded-xl border border-red-100 text-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                   <p className="text-[10px] uppercase font-black tracking-widest text-gray-400 dark:text-gray-500">
                     {format(n.createdAt)}

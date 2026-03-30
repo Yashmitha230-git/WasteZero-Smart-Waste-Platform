@@ -5,7 +5,7 @@ import {
   toggleUserStatus, 
   deleteOpportunityAdmin, 
   getStats, 
-  getActivityLogs 
+  getActivityLogs, downloadMasterReport 
 } from "../controller/adminController.js";
 import Opportunity from "../model/opportunity.js";
 
@@ -33,5 +33,6 @@ router.delete("/opportunities/:id", deleteOpportunityAdmin);
 // Reporting & Analytics
 router.get("/stats", getStats);
 router.get("/logs", getActivityLogs);
+router.get("/download/master", downloadMasterReport);
 
 export default router;

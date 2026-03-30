@@ -1,4 +1,5 @@
 import express from "express";
+import { applyOpportunity, respondApplication } from "../controller/notificationController.js";
 import Notification from "../model/notification.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -64,5 +65,30 @@ router.patch("/read-all", protect, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+// Delete notification
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const notification = await Notification.findById(req.params.id);
+
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+
+    if (notification.recipient.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    await notification.deleteOne();
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post("/apply/:id", protect, applyOpportunity);
+
+router.post("/respond/:id", protect, respondApplication);
 
 export default router;
