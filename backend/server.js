@@ -8,10 +8,20 @@ import { fileURLToPath } from "url";
 import pickupRoutes from "./routes/pickupRoutes.js";
 import { Server } from "socket.io";
 import Message from "./model/messages.js";
-import http from "http";   // ✅ FIXED
+import http from "http";
 import userRoutes from "./routes/userRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoute.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+import Notification from "./model/notification.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import {
+  addConnectedUser,
+  emitMessageToUser,
+  emitNotificationToUser,
+  removeConnectedUserBySocket,
+  setSocketInstance,
+} from "./utils/socket.js";
 
 import { getDashboardData } from "./controller/dashboardController.js";
 
@@ -23,80 +33,68 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const server = http.createServer(app);  // ✅ Required for socket
+const server = http.createServer(app);
 
 app.use(cors());
 app.use(express.json());
 
-// Request logger
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
-  next();
-});
-
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-app.use("/api/auth", userRoutes);
+app.use("/api/auth", userRoutes); // auth routes: /login, /register, /verify-otp
 app.use("/api/opportunity", opportunityRoutes);
 app.use("/api/pickups", pickupRoutes);
-app.use("/api/users", userRoutes);
+app.use("/api/users", userRoutes); // user routes: GET / (list users), /me, etc.
 app.use("/api/messages", messageRoutes);
-app.use("/api/dashboard", dashboardRoutes)
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/admin", adminRoutes);
 
-// Store online users
-const onlineUsers = new Map();
 const io = new Server(server, {
   cors: {
-    origin: "*", // allow all origins so multiple frontend instances work
+    origin: ["http://localhost:5173", "http://localhost:5174"],
     methods: ["GET", "POST"],
   },
 });
-
-let users = [];
-
-const addUser = (userId, socketId) => {
-  const userIndex = users.findIndex((user) => user.userId === userId);
-  if (userIndex !== -1) {
-    users[userIndex].socketId = socketId;
-  } else {
-    users.push({ userId, socketId });
-  }
-};
-
-const getUser = (userId) => {
-  return users.find((user) => user.userId === String(userId));
-};
+setSocketInstance(io);
 
 io.on("connection", (socket) => {
   console.log("User Connected:", socket.id);
 
-  // Add user
   socket.on("addUser", (userId) => {
-    addUser(userId, socket.id);
-    console.log("Users:", users);
+    addConnectedUser(userId, socket.id);
   });
 
-  // Send message
-  socket.on("sendMessage", ({ senderId, receiverId, text }) => {
-    const user = getUser(receiverId);
+  socket.on("sendMessage", async ({ senderId, receiverId, text }) => {
+    try {
+      const isSelfMessage =
+        senderId?.toString() === receiverId?.toString();
 
-    if (user) {
-      io.to(user.socketId).emit("receiveMessage", {
-        senderId,
-        receiverId,
-        text,
-      });
+      if (!isSelfMessage) {
+        await Notification.create({
+          recipient: receiverId,
+          sender: senderId,
+          type: "message",
+          content: `New message: ${text.substring(0, 30)}${text.length > 30 ? '...' : ''}`,
+          link: "/messages",
+        });
+      }
+
+      emitMessageToUser(receiverId, { senderId, receiverId, text });
+      if (!isSelfMessage) {
+        emitNotificationToUser(receiverId);
+      }
+    } catch (error) {
+      console.log("Socket message error:", error);
     }
   });
 
   socket.on("disconnect", () => {
-    users = users.filter((user) => user.socketId !== socket.id);
+    removeConnectedUserBySocket(socket.id);
     console.log("User disconnected");
   });
 });
 
-const PORT = process.env.PORT || 3001;
-
+const PORT = process.env.PORT || 3003;
 server.listen(PORT, () =>
   console.log(`Server running on port ${PORT}`)
 );

@@ -56,7 +56,7 @@ router.get("/check", protect, (req, res) => {
 
 // Get Profile
 router.get("/me", protect, async (req, res) => {
-  const user = await User.findById(req.user.id).select("-password");
+  const user = await User.findById(req.user._id).select("-password");
   res.json(user);
 });
 
@@ -65,7 +65,7 @@ router.put("/me", protect, async (req, res) => {
   const { name, location, skills } = req.body;
 
   const updated = await User.findByIdAndUpdate(
-    req.user.id,
+    req.user._id,
     { name, location, skills },
     { new: true }
   ).select("-password");
@@ -77,7 +77,7 @@ router.put("/me", protect, async (req, res) => {
 router.put("/change-password", protect, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
-  const user = await User.findById(req.user.id);
+  const user = await User.findById(req.user._id);
 
   const isMatch = await bcrypt.compare(currentPassword, user.password);
   if (!isMatch)

@@ -1,51 +1,133 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect, useContext, useCallback } from "react";
+import axios from "axios";
 import { io } from "socket.io-client";
-import toast from 'react-hot-toast';
 
 const NotificationContext = createContext();
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
+const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
 export const NotificationProvider = ({ children }) => {
-  const [unreadCount, setUnreadCount] = useState(() => {
-    const saved = localStorage.getItem("globalUnreadCount");
-    return saved ? parseInt(saved, 10) : 0;
-  });
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState(null);
 
-  useEffect(() => {
-    localStorage.setItem("globalUnreadCount", unreadCount.toString());
-  }, [unreadCount]);
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) return;
-
-    const user = JSON.parse(storedUser);
-    const userId = user.id || user._id;
-
-    const newSocket = io(SOCKET_URL);
-    setSocket(newSocket);
-
-    newSocket.emit("addUser", userId);
-
-    newSocket.on("receiveMessage", (data) => {
-      // We check if the current path is NOT /messages before incrementing
-      if (window.location.pathname !== "/messages") {
-        setUnreadCount((prev) => prev + 1);
-        toast.success(`You have a new message!`, { icon: '💬', id: 'global-msg-toast' });
-      }
-    });
-
-    return () => newSocket.close();
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const { data } = await axios.get("/api/notifications");
+      setNotifications(data);
+    } catch (error) {
+      console.log("Fetch notifications error:", error);
+    }
   }, []);
 
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+       const { data } = await axios.get("/api/notifications/unread-count");
+       setUnreadCount(data.count);
+    } catch (error) {
+       console.log("Fetch unread count error:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      fetchNotifications();
+      fetchUnreadCount();
+
+      const newSocket = io(backendUrl);
+      setSocket(newSocket);
+
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        newSocket.emit("addUser", user._id || user.id);
+      }
+
+      newSocket.on("newNotification", () => {
+        fetchNotifications();
+        fetchUnreadCount();
+      });
+
+      return () => newSocket.close();
+    }
+  }, [fetchNotifications, fetchUnreadCount]);
+
+  const markAsRead = async (id) => {
+    try {
+      await axios.patch(`/api/notifications/${id}/read`);
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) =>
+          notification._id === id
+            ? { ...notification, isRead: true }
+            : notification
+        )
+      );
+      setUnreadCount((currentCount) => Math.max(0, currentCount - 1));
+    } catch (error) {
+       console.log("Mark as read error:", error);
+       fetchNotifications();
+       fetchUnreadCount();
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await axios.patch("/api/notifications/read-all");
+      setNotifications((currentNotifications) =>
+        currentNotifications.map((notification) => ({
+          ...notification,
+          isRead: true,
+        }))
+      );
+      setUnreadCount(0);
+    } catch (error) {
+       console.log("Mark all as read error:", error);
+       fetchNotifications();
+       fetchUnreadCount();
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    try {
+      await axios.delete(`/api/notifications/${id}`);
+      setNotifications((currentNotifications) => {
+        const deletedNotification = currentNotifications.find(
+          (notification) => notification._id === id
+        );
+
+        if (deletedNotification && !deletedNotification.isRead) {
+          setUnreadCount((currentCount) => Math.max(0, currentCount - 1));
+        }
+
+        return currentNotifications.filter(
+          (notification) => notification._id !== id
+        );
+      });
+    } catch (error) {
+      console.log("Delete notification error:", error);
+      fetchNotifications();
+      fetchUnreadCount();
+    }
+  };
+
   const clearNotifications = () => {
+    setNotifications([]);
     setUnreadCount(0);
   };
 
   return (
-    <NotificationContext.Provider value={{ unreadCount, setUnreadCount, clearNotifications, socket }}>
+    <NotificationContext.Provider
+      value={{
+        notifications,
+        unreadCount,
+        socket,
+        markAsRead,
+        markAllAsRead,
+        deleteNotification,
+        fetchNotifications,
+        clearNotifications,
+      }}
+    >
       {children}
     </NotificationContext.Provider>
   );
