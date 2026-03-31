@@ -48,6 +48,9 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
+app.get("/api/test", (req, res) => {
+  res.send("Backend is working!");
+});
 
 const io = new Server(server, {
   cors: {
