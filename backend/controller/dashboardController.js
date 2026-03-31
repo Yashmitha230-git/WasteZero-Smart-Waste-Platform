@@ -327,7 +327,8 @@ export const createOpportunity = async (req, res) => {
     console.log("REQ.FILE:", req.file);
 
     const { title, description, location, date, duration, status } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const image = req.file ? req.file.path : null;
+
 
     if (!req.user) {
       return res.status(401).json({ message: "Unauthorized: User not found" });

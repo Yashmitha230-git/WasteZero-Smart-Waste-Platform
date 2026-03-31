@@ -1,18 +1,19 @@
 import multer from "multer";
-import fs from "fs";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import { v2 as cloudinary } from "cloudinary";
 
-const uploadPath = "uploads/";
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-// create folder if not exists
-fs.mkdirSync(uploadPath, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
-  }
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async () => ({
+    folder: "wastezero",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+  }),
 });
 
 const upload = multer({ storage });
