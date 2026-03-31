@@ -43,11 +43,13 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth", userRoutes); // auth routes: /login, /register, /verify-otp
 app.use("/api/opportunity", opportunityRoutes);
 app.use("/api/pickups", pickupRoutes);
-app.use("/api/users", userRoutes); // user routes: GET / (list users), /me, etc.
 app.use("/api/messages", messageRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
+app.get("/api/test", (req, res) => {
+  res.send("Backend is working!");
+});
 
 const io = new Server(server, {
   cors: {

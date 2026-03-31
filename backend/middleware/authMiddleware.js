@@ -29,6 +29,12 @@ export const protect = async (req, res, next) => {
       });
     }
 
+    if (req.user.isSuspended) {
+      return res.status(403).json({
+        message: "Your account has been suspended. You cannot access the platform right now.",
+      });
+    }
+
     next();
   } catch (error) {
     return res.status(401).json({ message: "Not authorized, token failed" });

@@ -23,6 +23,7 @@ function OtpVerification() {
     e.preventDefault();
     setLoading(true);
 
+    setLoading(true);
     try {
       if (type === "register") {
         await verifyRegisterOtp({ userId, otp });

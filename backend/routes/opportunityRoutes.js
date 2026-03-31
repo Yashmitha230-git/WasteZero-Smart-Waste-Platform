@@ -110,6 +110,7 @@ router.put(
   upload.single("image"),
   updateOpportunity
 );
+
 // ================= DELETE =================
 // Admin & NGO can delete
 router.delete(
@@ -125,12 +126,12 @@ router.delete(
 
       // 🔐 NGO restriction
       if (
-  req.user.role === "ngo" &&
-  opportunity.createdBy &&
-  opportunity.createdBy.toString() !== req.user._id.toString()
-) {
-  return res.status(403).json({ msg: "Not authorized to delete this opportunity" });
-}
+        req.user.role === "ngo" &&
+        opportunity.createdBy &&
+        opportunity.createdBy.toString() !== req.user._id.toString()
+      ) {
+        return res.status(403).json({ msg: "Not authorized to delete this opportunity" });
+      }
 
       await opportunity.deleteOne();
 
