@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const backendUrl = https://wastezero-smart-waste-platform-backend.onrender.com || 'http://localhost:3003'
+  const backendUrl = env.VITE_BACKEND_URL || 'http://localhost:3003'
 
   return {
     plugins: [react(), tailwindcss()],
@@ -14,10 +14,7 @@ export default defineConfig(({ mode }) => {
           target: backendUrl,
           changeOrigin: true,
         },
-        '/uploads': {
-          target: backendUrl,
-          changeOrigin: true,
-        }
+        
       }
     }
   }
