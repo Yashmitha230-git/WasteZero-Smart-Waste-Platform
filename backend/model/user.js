@@ -71,9 +71,16 @@ const userSchema = new mongoose.Schema(
     otpExpiry: {
       type: Date,
       default: null
+    },
+
+    locationCoords: {
+      type: { type: String, enum: ["Point"], default: "Point" },
+      coordinates: { type: [Number], default: [0, 0] } // [longitude, latitude]
     }
   },
   { timestamps: true }
 );
+
+userSchema.index({ locationCoords: "2dsphere" });
 
 export default mongoose.model("User", userSchema);

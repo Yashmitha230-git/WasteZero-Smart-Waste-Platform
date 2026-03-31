@@ -133,7 +133,7 @@ export default function VolunteerDashboard() {
 
   return (
     <div className="space-y-6 sm:space-y-8 lg:space-y-10 pb-10">
-      {/* ── Welcome Header ───────────────────────────────────────────.. */}
+      {/* ── Welcome Header ─────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white tracking-tight">

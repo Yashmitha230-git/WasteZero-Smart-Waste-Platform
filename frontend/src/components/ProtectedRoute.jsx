@@ -1,22 +1,25 @@
-import { Navigate } from "react-router-dom";
+import React from "react";
+import { Navigate, Outlet } from "react-router-dom";
 
-function ProtectedRoute({ children, allowedRoles }) {
+const ProtectedRoute = ({ allowedRoles }) => {
   const token = localStorage.getItem("token");
   const storedUser = localStorage.getItem("user");
+  const user = storedUser ? JSON.parse(storedUser) : null;
 
-  if (!token) {
-    return <Navigate to="/" replace />;
+  if (!token || !user || !user.role) {
+    // Not logged in or corrupted state
+    console.warn("Unauthorized access or missing role - redirecting to login");
+    localStorage.clear();
+    return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles) {
-    const user = JSON.parse(storedUser);
-
-    if (!allowedRoles.includes(user.role)) {
-      return <Navigate to="/" replace />;
-    }
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    // Logged in but doesn't have the right role
+    console.warn(`Role ${user.role} not authorized for this route`);
+    return <Navigate to="/dashboard" replace />;
   }
 
-  return children;
-}
+  return <Outlet />;
+};
 
 export default ProtectedRoute;

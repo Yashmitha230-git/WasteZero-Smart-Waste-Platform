@@ -5,8 +5,10 @@ const {
   registerUser,
   verifyRegisterOtp,
   loginUser,
-  verifyLoginOtp
+  verifyLoginOtp,
+  resendOtp
 } = require("../controllers/authController");
+
 
 const { protect, authorizeRoles } = require("../middleware/authMiddleware");
 
@@ -24,6 +26,9 @@ router.post("/login", loginUser);
 
 // Verify Login OTP → Generate JWT
 router.post("/verify-login-otp", verifyLoginOtp);
+
+// Resend OTP
+router.post("/resend-otp", resendOtp);
 
 
 // ============ PROTECTED ROUTES ============
