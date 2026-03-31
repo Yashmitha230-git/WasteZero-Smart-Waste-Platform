@@ -51,6 +51,7 @@ app.use("/api/admin", adminRoutes);
 app.get("/api/test", (req, res) => {
   res.send("Backend is working!");
 });
+
 const io = new Server(server, {
   cors: {
     origin: ["http://localhost:5173", "http://localhost:5174"],
